@@ -1,5 +1,5 @@
 
-CC ?= gcc
+CC = gcc
 RM = rm -fR
 ifeq ($(OS),Windows_NT)
   RM = del /q
@@ -9,7 +9,7 @@ BUILD_DIR = build
 
 C_SOURCES = \
 src/ulog.c \
-tests/tests.c
+tests/tests.c \
 
 C_INCLUDES = \
 -Isrc \
@@ -17,10 +17,10 @@ C_INCLUDES = \
 
 C_FLAGS = -Wall
 
-all: tests
+all: test_app
 
-tests:
-	$(CC) $(C_FLAGS) $(C_SOURCES) $(C_INCLUDES) -o $(BUILD_DIR)/test
+test_app: $(BUILD_DIR)
+	$(CC) $(C_FLAGS) $(C_SOURCES) $(C_INCLUDES) -o $(BUILD_DIR)/tests
 
 $(BUILD_DIR):
 	-mkdir $@

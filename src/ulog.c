@@ -59,7 +59,7 @@ char ulog_get_level(void)
 /**
   * @brief  ulog example: 2000/01/01 06:03:22.000 [  protect] Overcurrent
   */
-void ulog(char dest, char level, const char* tag, const char* msg, ...)
+void ulog(unsigned char dest, unsigned char level, const char* tag, const char* msg, ...)
 {
     if ((dest & ulog_dest_available) == ULOG_NULL)
         return;
