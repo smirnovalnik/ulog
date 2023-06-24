@@ -44,7 +44,7 @@ char ulog_get_level(void);
 
 /**
   * Log a message
-  * @brief  System log Ex: 2000/01/01 06:03:22.000 [  protect] Overcurrent
+  * @brief  System log Ex: 2000/01/01 06:03:22.000 [  protect]   ERR Overcurrent
   */
 void ulog(unsigned char dest, unsigned char level, const char* tag, const char* msg, ...);
 

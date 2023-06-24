@@ -73,9 +73,9 @@ void ulog(unsigned char dest, unsigned char level, const char* tag, const char* 
     static va_list args;
     static time_t rawtime;
     static struct tm* timeinfo;
-    static char ftime[sizeof("2000/01/01 06:03:22.000 ")];
+    static char ftime[sizeof("2000/01/01 06:03:22.000")];
     #if ULOG_PRINT_TAG == 1
-    static char ftag[sizeof("[          ] ")];
+    static char ftag[sizeof("[          ]")];
     #endif
     static char fmsg[64];
 
