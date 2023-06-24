@@ -7,15 +7,16 @@
   ******************************************************************************
 */
 
-#define ULOG_COLOR_ENABLE        1
-#define ULOG_TAG_ENABLE          1
-#define ULOG_ENDLINE             "\n"
-#define ULOG_REMOVE_SPACES       0
-#define ULOG_USE_MUTEX           0
+#define ULOG_PRINT_TAG          1
+#define ULOG_PRINT_COLOR        1
+#define ULOG_PRINT_LEVEL        1
+#define ULOG_ENDLINE            "\n"
+#define ULOG_REMOVE_SPACES      0
+#define ULOG_USE_MUTEX          0
 
-#define ULOG_FILE_SYSTEM        0
-#define ULOG_FILE_NAME           "system.log"
-#define ULOG_MAX_FILE_SIZE       (10 * 1024 * 1024)   /* bytes */
+#define ULOG_FILE_SYSTEM        1
+#define ULOG_FILE_NAME          "system.log"
+#define ULOG_MAX_FILE_SIZE      (10 * 1024 * 1024)   /* bytes */
 #define ULOG_USE_POSIX          1
 
 #if ULOG_USE_MUTEX == 1
@@ -32,6 +33,8 @@ static xSemaphoreHandle ulog_mutex;
 #define ULOG_MUTEX_GIVE()
 #endif
 
-#if ULOG_USE_POSIX == 0
+#if ULOG_USE_POSIX == 1
+
+#else
 #include "fatfs.h"      /* FatFs from Chan */
 #endif

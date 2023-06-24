@@ -30,4 +30,9 @@ int main()
     ulog(ULOG_STDOUT, ULOG_ERR_LVL, "tag5", "data %d", i++);
 
     ulog(ULOG_STDOUT, ULOG_ERR_LVL, "tag5", "very looooooooooooooooooooooooooooong striiiiiiiiiiiiiiiiiiiiiiiiiing", i++);
+
+
+    ulog_init(ULOG_STDOUT | ULOG_FS);
+    ulog(ULOG_FS, ULOG_TRACE_LVL, "tag1", "data %d", i++);
+    ulog(ULOG_FS, ULOG_ERR_LVL, "tag2", "data %d", i++);
 }

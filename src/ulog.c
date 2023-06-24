@@ -21,8 +21,13 @@
 #define ULOG_COLOR_TRACE     "\x1b[36m"
 #define ULOG_COLOR_RESET     "\x1b[0m"
 
+static char* ulog_level_color[] = \
+    {ULOG_COLOR_RESET, ULOG_COLOR_TRACE, ULOG_COLOR_DEBUG, ULOG_COLOR_RESET, ULOG_COLOR_WARN, ULOG_COLOR_ERR};
+
+static char* ulog_level_str[] = \
+    {"", "TRACE", "DEBUG", " INFO", " WARN", "  ERR"};
+
 static char ulog_dest_available = ULOG_NULL;
-static char ulog_dest_enable = ULOG_STDOUT | ULOG_FS;
 static char ulog_level = ULOG_DEBUG_LVL;
 
 void ulog_init(char dest)
@@ -37,7 +42,7 @@ void ulog_deinit(void)
 
 char ulog_get_dest(void)
 {
-    return ulog_dest_enable & ulog_dest_available;
+    return ulog_dest_available;
 }
 
 void ulog_set_level(char level)
@@ -56,7 +61,7 @@ char ulog_get_level(void)
   */
 void ulog(char dest, char level, const char* tag, const char* msg, ...)
 {
-    if ((dest & ulog_dest_enable & ulog_dest_available) == ULOG_NULL)
+    if ((dest & ulog_dest_available) == ULOG_NULL)
         return;
 
     if (level < ulog_level)
@@ -69,7 +74,7 @@ void ulog(char dest, char level, const char* tag, const char* msg, ...)
     static time_t rawtime;
     static struct tm* timeinfo;
     static char ftime[sizeof("2000/01/01 06:03:22.000 ")];
-    #if ULOG_TAG_ENABLE == 1
+    #if ULOG_PRINT_TAG == 1
     static char ftag[sizeof("[          ] ")];
     #endif
     static char fmsg[64];
@@ -77,12 +82,12 @@ void ulog(char dest, char level, const char* tag, const char* msg, ...)
     time(&rawtime);
     timeinfo = localtime(&rawtime);
 
-    snprintf(ftime, sizeof(ftime), "%04d/%02d/%02d %02d:%02d:%02d.%03d ",
+    snprintf(ftime, sizeof(ftime), "%04d/%02d/%02d %02d:%02d:%02d.%03d",
             timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour,
             timeinfo->tm_min, timeinfo->tm_sec, 0);
 
-    #if ULOG_TAG_ENABLE == 1
-    snprintf(ftag, sizeof(ftag), "[%10.10s] ", tag);
+    #if ULOG_PRINT_TAG == 1
+    snprintf(ftag, sizeof(ftag), "[%10.10s]", tag);
     #endif
 
     va_start(args, msg);
@@ -97,59 +102,100 @@ void ulog(char dest, char level, const char* tag, const char* msg, ...)
     #endif
 
     /* Log to stdout */
-    if (dest & ulog_dest_enable & ulog_dest_available & ULOG_STDOUT)
+    if (dest & ulog_dest_available & ULOG_STDOUT)
     {
         /* Print date time*/
-        printf("%s", ftime);
+        printf("%s ", ftime);
 
-        #if ULOG_TAG_ENABLE == 1
+        #if ULOG_PRINT_TAG == 1
         /* Print tag */
-        printf("%s", ftag);
+        printf("%s ", ftag);
         #endif
 
-        #if ULOG_COLOR_ENABLE == 1
+        #if ULOG_PRINT_COLOR == 1
         /* Set message color */
-        if (level == ULOG_ERR_LVL)
-            printf(ULOG_COLOR_ERR);
-        else if (level == ULOG_WARN_LVL)
-            printf(ULOG_COLOR_WARN);
-        else if (level == ULOG_DEBUG_LVL)
-            printf(ULOG_COLOR_DEBUG);
-        else if (level == ULOG_TRACE_LVL)
-            printf(ULOG_COLOR_TRACE);
-        #endif /* ULOG_COLOR_ENABLE */
+        printf("%s", ulog_level_color[level]);
+        #endif
+
+        #if ULOG_PRINT_LEVEL == 1
+        /* Print lelvel */
+        printf("%s ", ulog_level_str[level]);
+        #endif
 
         /* Print message string */
         printf("%s", fmsg);
 
-        #if ULOG_COLOR_ENABLE == 1
+        #if ULOG_PRINT_COLOR == 1
         /* Reset message color */
         if (level != ULOG_INFO_LVL)
             printf(ULOG_COLOR_RESET);
-        #endif /* ULOG_COLOR_ENABLE */
+        #endif
 
         printf(ULOG_ENDLINE);
     }
 
     /* Log to file */
     #if ULOG_FILE_SYSTEM == 1
-    #if ULOG_USE_POSIX == 1
-
-    #else
-    if (dest & ulog_dest_enable & ulog_dest_available & LOG_FS)
+    if (dest & ulog_dest_available & ULOG_FS)
     {
+        #if ULOG_USE_POSIX == 1
+        int rc = -1;
+        FILE *fp;
+
+        /* Check existance */
+        if ((fp = fopen(ULOG_FILE_NAME, "r")) != NULL)
+        {
+            rc = fseek(fp, 0, SEEK_END);
+            long size = ftell(fp);
+            if (rc != -1 && size >= ULOG_MAX_FILE_SIZE)
+            {
+                remove(ULOG_FILE_NAME".bak");
+                rename(ULOG_FILE_NAME, ULOG_FILE_NAME".bak");
+            }
+            fclose(fp);
+        }
+
+        if ((fp = fopen(ULOG_FILE_NAME, "a")) != NULL)
+        {
+            /* Write date time*/
+            rc = fprintf(fp, "%s ", ftime);
+            if (rc < 0) goto err;
+
+            #if ULOG_PRINT_TAG == 1
+            /* Write tag */
+            rc = fprintf(fp, "%s ", ftag);
+            if (rc < 0) goto err;
+            #endif
+
+            #if ULOG_PRINT_LEVEL == 1
+            /* Write level */
+            rc = fprintf(fp, "%s ", ulog_level_str[level]);
+            if (rc < 0) goto err;
+            #endif
+
+            /* Write message string */
+            rc = fprintf(fp, "%s", fmsg);
+            if (rc < 0) goto err;
+
+            /* Write endline character */
+            rc = fprintf(fp, "%s", ULOG_ENDLINE);
+            if (rc < 0) goto err;
+        }
+
+err:    fclose(fp);
+        #else
         FIL f;
-        FRESULT res;
+        FRESULT rc;
         FILINFO fno;
         UINT bw;
 
         /* Check existance */
-        res = f_stat(ULOG_FILE_NAME, &fno);
-        if (res == FR_OK && fno.fsize >= LOG_MAX_FILE_SIZE)
+        rc = f_stat(ULOG_FILE_NAME, &fno);
+        if (rc == FR_OK && fno.fsize >= LOG_MAX_FILE_SIZE)
         {
             /* Check existance of a backup */
-            res = f_stat(ULOG_FILE_NAME".bak", &fno);
-            if (res == FR_OK)
+            rc = f_stat(ULOG_FILE_NAME".bak", &fno);
+            if (rc == FR_OK)
             {
                 f_unlink(ULOG_FILE_NAME".bak");
             }
@@ -157,29 +203,29 @@ void ulog(char dest, char level, const char* tag, const char* msg, ...)
             f_rename(ULOG_FILE_NAME, ULOG_FILE_NAME".bak");
         }
 
-        res = f_open(&f, ULOG_FILE_NAME, FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_APPEND);
-        if (res == FR_OK)
+        rc = f_open(&f, ULOG_FILE_NAME, FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_APPEND);
+        if (rc == FR_OK)
         {
             /* Write date time*/
-            res = f_write(&f, ftime, sizeof(ftime) - 1, &bw);
-            if (res) goto err;
+            rc = f_write(&f, ftime, sizeof(ftime) - 1, &bw);
+            if (rc) goto err;
 
             /* Write tag */
-            res = f_write(&f, ftag, sizeof(ftag) - 1, &bw);
-            if (res) goto err;
+            rc = f_write(&f, ftag, sizeof(ftag) - 1, &bw);
+            if (rc) goto err;
 
             /* Write message string */
-            res = f_write(&f, fmsg, strlen(fmsg), &bw);
-            if (res) goto err;
+            rc = f_write(&f, fmsg, strlen(fmsg), &bw);
+            if (rc) goto err;
 
-            res = f_write(&f, ULOG_ENDLINE, sizeof(ULOG_ENDLINE) - 1, &bw);
-            if (res) goto err;
+            /* Write endline character */
+            rc = f_write(&f, ULOG_ENDLINE, sizeof(ULOG_ENDLINE) - 1, &bw);
+            if (rc) goto err;
 
 err:        f_close(&f);
-            if (res) fatfs_error(res);
         }
+        #endif /* ULOG_USE_POSIX */
     }
-    #endif /* ULOG_USE_POSIX */
     #endif /* ULOG_FILE_SYSTEM */
     ULOG_MUTEX_GIVE();
 }

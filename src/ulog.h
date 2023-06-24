@@ -23,11 +23,12 @@ enum {
 
 /** ulog level */
 enum {
-    ULOG_TRACE_LVL   = 0x00,    /**< Log trace */
-    ULOG_DEBUG_LVL   = 0x01,    /**< Log debug */
-    ULOG_INFO_LVL    = 0x02,    /**< Log information */
-    ULOG_WARN_LVL    = 0x03,    /**< Log warning */
-    ULOG_ERR_LVL     = 0x04,    /**< Log error */
+    ULOG_NONE_LVL    = 0x00,
+    ULOG_TRACE_LVL   = 0x01,    /**< Log trace */
+    ULOG_DEBUG_LVL   = 0x02,    /**< Log debug */
+    ULOG_INFO_LVL    = 0x03,    /**< Log information */
+    ULOG_WARN_LVL    = 0x04,    /**< Log warning */
+    ULOG_ERR_LVL     = 0x05,    /**< Log error */
 };
 
 /** Initalization */
