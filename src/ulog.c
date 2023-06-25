@@ -138,7 +138,7 @@ void ulog(unsigned char dest, unsigned char level, const char* tag, const char* 
     #if ULOG_FILE_SYSTEM == 1
     if (dest & ulog_dest_available & ULOG_FS)
     {
-        #if ULOG_USE_POSIX == 1
+        #if ULOG_USE_POSIX_IO == 1
         int rc = -1;
         FILE *fp;
 
@@ -224,7 +224,7 @@ err:    fclose(fp);
 
 err:        f_close(&f);
         }
-        #endif /* ULOG_USE_POSIX */
+        #endif /* ULOG_USE_POSIX_IO */
     }
     #endif /* ULOG_FILE_SYSTEM */
     ULOG_MUTEX_GIVE();
