@@ -7,12 +7,12 @@ int main()
 
     ulog_init(ULOG_STDOUT);
 
-    ulog(ULOG_STDOUT, ULOG_NONE_LVL, "tag0", "none %d", i++);
-    ulog(ULOG_STDOUT, ULOG_TRACE_LVL, "tag1", "trace %d", i++);
-    ulog(ULOG_STDOUT, ULOG_DEBUG_LVL, "tag2", "debug %d", i++);
-    ulog(ULOG_STDOUT, ULOG_INFO_LVL, "tag3", "info %d", i++);
-    ulog(ULOG_STDOUT, ULOG_WARN_LVL, "tag4", "warn %d", i++);
-    ulog(ULOG_STDOUT, ULOG_ERR_LVL, "tag5", "err %d", i++);
+    ulog(ULOG_STDOUT, ULOG_NONE_LVL, "tag0", "example none message %d", i++);
+    ulog(ULOG_STDOUT, ULOG_TRACE_LVL, "tag1", "example trace message %d", i++);
+    ulog(ULOG_STDOUT, ULOG_DEBUG_LVL, "tag2", "example debug message %d", i++);
+    ulog(ULOG_STDOUT, ULOG_INFO_LVL, "tag3", "example info message %d", i++);
+    ulog(ULOG_STDOUT, ULOG_WARN_LVL, "tag4", "example warn message %d", i++);
+    ulog(ULOG_STDOUT, ULOG_ERR_LVL, "tag5", "example err message %d", i++);
 
     ulog_set_level(ULOG_INFO_LVL);
 
