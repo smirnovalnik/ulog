@@ -1,6 +1,32 @@
 # ulog
 Micro log library for embedded systems
 
+## Using
+
+```c
+#include "ulog.h"
+...
+/* Init ulog. Print to stdout */
+ulog_init(ULOG_STDOUT);
+/* Set log level. Print message >= ULOG_INFO_LVL */
+ulog_set_level(ULOG_INFO_LVL);
+
+/* Will not print */
+ulog(ULOG_STDOUT, ULOG_DEBUG_LVL, "spi", "send %d bytes", n);
+/* Will print */
+ulog(ULOG_STDOUT, ULOG_INFO_LVL, "uart", "init");
+/* Will print */
+ulog(ULOG_STDOUT, ULOG_WARN_LVL, "i2c", "wrond data: %s", err);
+
+...
+/* Init ulog. Print to stdout and file system */
+ulog_init(ULOG_STDOUT | ULOG_FS);
+/* Print to file system */
+ulog(ULOG_STDOUT, ULOG_ERR_LVL, "protect", "overvoltage: %f", v);
+/* Print to stdout and file system */
+ulog(ULOG_STDOUT | ULOG_FS, ULOG_INFO_LVL, "can", "received id: %d cmd: %s", id, cmd);
+```
+
 ## Example of output
 
 ```bash
