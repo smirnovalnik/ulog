@@ -12,7 +12,9 @@
 #define ULOG_PRINT_LEVEL        1
 #define ULOG_ENDLINE            "\n"
 #define ULOG_REMOVE_SPACES      1
-#define ULOG_USE_MUTEX          0
+
+#define ULOG_USE_MUTEX          1
+#define ULOG_USE_POSIX_MUTEX    1
 
 #define ULOG_FILE_SYSTEM        1
 #define ULOG_FILE_NAME          "system.log"
@@ -20,13 +22,22 @@
 #define ULOG_USE_POSIX_IO       1
 
 #if ULOG_USE_MUTEX == 1
+#if ULOG_USE_POSIX_MUTEX == 1
+#include <pthread.h>
+#include <stdlib.h>
+static pthread_mutex_t ulog_mutex = PTHREAD_MUTEX_INITIALIZER;
+#define ULOG_CREATE_MUTEX()
+#define ULOG_MUTEX_TAKE()   pthread_mutex_lock(&ulog_mutex);
+#define ULOG_MUTEX_GIVE()   pthread_mutex_unlock(&ulog_mutex);
+#else
 #include "FreeRTOS.h"
 #include "semphr.h"
 static xSemaphoreHandle ulog_mutex;
-#define ULOG_CREATE_MUTEX()  if (ulog_mutex == NULL)\
+#define ULOG_CREATE_MUTEX()  if (ulog_mutex == NULL) \
                                 ulog_mutex = xSemaphoreCreateMutex()
 #define ULOG_MUTEX_TAKE()    xSemaphoreTake(ulog_mutex, portMAX_DELAY)
 #define ULOG_MUTEX_GIVE()    xSemaphoreGive(ulog_mutex)
+#endif
 #else
 #define ULOG_CREATE_MUTEX()
 #define ULOG_MUTEX_TAKE()
