@@ -1,11 +1,11 @@
 
-CC = gcc
+CC ?= gcc
 RM = rm -fR
 ifeq ($(OS),Windows_NT)
   RM = del /q
 endif
 
-BUILD_DIR = build
+BUILD_DIR ?= build
 
 C_SOURCES = \
 src/ulog.c \
@@ -13,7 +13,7 @@ tests/tests.c \
 
 C_INCLUDES = \
 -Isrc \
--Itests
+-Itests \
 
 C_FLAGS = -Wall
 
