@@ -1,5 +1,5 @@
 # ulog
-Micro log library for embedded systems
+Micro log library for embedded systems.
 
 ## Using
 
@@ -16,7 +16,7 @@ ulog(ULOG_STDOUT, ULOG_DEBUG_LVL, "spi", "send %d bytes", n);
 /* Will print */
 ulog(ULOG_STDOUT, ULOG_INFO_LVL, "uart", "init");
 /* Will print */
-ulog(ULOG_STDOUT, ULOG_WARN_LVL, "i2c", "wrond data: %s", err);
+ulog(ULOG_STDOUT, ULOG_WARN_LVL, "i2c", "wrong data: %s", err);
 
 ...
 /* Init ulog. Print to stdout and file system */
