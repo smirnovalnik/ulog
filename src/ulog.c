@@ -71,7 +71,12 @@ void ulog(unsigned char dest, unsigned char level, const char* tag, const char* 
     ULOG_MUTEX_TAKE();
 
     static va_list args;
+    #if ULOG_TIMESTAMP_MS == 0
     static time_t rawtime;
+    #else
+    static struct timespec rawtime;
+    #endif
+    int ms = 0;
     static struct tm* timeinfo;
     static char ftime[sizeof("2000/01/01 06:03:22.000")];
     #if ULOG_PRINT_TAG == 1
@@ -79,12 +84,18 @@ void ulog(unsigned char dest, unsigned char level, const char* tag, const char* 
     #endif
     static char fmsg[64];
 
+    #if ULOG_TIMESTAMP_MS == 0
     time(&rawtime);
     timeinfo = localtime(&rawtime);
+    #else
+    clock_gettime(CLOCK_REALTIME, &rawtime);
+    timeinfo  = localtime(&rawtime.tv_sec);
+    ms = rawtime.tv_nsec / 1000000;
+    #endif
 
     snprintf(ftime, sizeof(ftime), "%04d/%02d/%02d %02d:%02d:%02d.%03d",
             timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour,
-            timeinfo->tm_min, timeinfo->tm_sec, 0);
+            timeinfo->tm_min, timeinfo->tm_sec, ms);
 
     #if ULOG_PRINT_TAG == 1
     snprintf(ftag, sizeof(ftag), "[%10.10s]", tag);

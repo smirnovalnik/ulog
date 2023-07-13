@@ -1,5 +1,6 @@
 
 #include "ulog.h"
+#include <time.h>
 
 int main()
 {
@@ -24,6 +25,10 @@ int main()
     ulog(ULOG_STDOUT, ULOG_ERR_LVL, "tag5", "err %d", i++);
 
     ulog_set_level(ULOG_TRACE_LVL);
+
+    struct timespec tim = {.tv_sec = 1, .tv_nsec = 500000};
+
+    nanosleep(&tim, NULL);
 
     ulog(ULOG_STDOUT, ULOG_NONE_LVL, "tag0", "none %d", i++);
     ulog(ULOG_STDOUT, ULOG_TRACE_LVL, "tag1", "trace %d", i++);

@@ -13,6 +13,8 @@
 #define ULOG_ENDLINE            "\n"
 #define ULOG_REMOVE_SPACES      1
 
+#define ULOG_TIMESTAMP_MS       1
+
 #define ULOG_USE_MUTEX          1
 #define ULOG_USE_POSIX_MUTEX    1
 
