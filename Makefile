@@ -21,8 +21,9 @@ LIBS = -lpthread
 
 all: test_app
 
-test_app: $(BUILD_DIR)
+test: $(BUILD_DIR)
 	$(CC) $(C_FLAGS) $(C_SOURCES) $(C_INCLUDES) $(LIBS) -o $(BUILD_DIR)/tests
+	./$(BUILD_DIR)/tests
 
 $(BUILD_DIR):
 	-mkdir $@
