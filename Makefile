@@ -15,11 +15,11 @@ C_INCLUDES = \
 -Isrc \
 -Itests \
 
-C_FLAGS = -Wall
+C_FLAGS = -std=c99  -Wall -Wextra -fpic
 
 LIBS = -lpthread
 
-all: test_app
+all: test
 
 test: $(BUILD_DIR)
 	$(CC) $(C_FLAGS) $(C_SOURCES) $(C_INCLUDES) $(LIBS) -o $(BUILD_DIR)/tests
