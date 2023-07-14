@@ -15,7 +15,7 @@ C_INCLUDES = \
 -Isrc \
 -Itests \
 
-C_FLAGS = -std=c99  -Wall -Wextra -fpic
+C_FLAGS = -std=c99  -Wall -Wpedantic -Wextra -fpic
 
 LIBS = -lpthread
 

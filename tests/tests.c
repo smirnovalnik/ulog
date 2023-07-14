@@ -2,7 +2,7 @@
 #include "ulog.h"
 #include <time.h>
 
-int main()
+int main(void)
 {
     int i = 0;
 
