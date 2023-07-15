@@ -7,8 +7,8 @@
   ******************************************************************************
 */
 
-#include "ulog.h"
 #include "ulog_conf.h"
+#include "ulog.h"
 
 #include <stdarg.h>
 #include <string.h>

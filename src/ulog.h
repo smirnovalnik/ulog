@@ -48,11 +48,12 @@ char ulog_get_level(void);
   */
 void ulog(unsigned char dest, unsigned char level, const char* tag, const char* msg, ...);
 
-#define ULOG_TRACE(tag, msg, ...) ulog(ULOG_STDOUT, ULOG_TRACE_LVL, tag, msg, ##__VA_ARGS__)
-#define ULOG_DEBUG(tag, msg, ...) ulog(ULOG_STDOUT, ULOG_DEBUG_LVL, tag, msg, ##__VA_ARGS__)
-#define ULOG_INFO(tag, msg, ...)  ulog(ULOG_STDOUT, ULOG_INFO_LVL, tag, msg, ##__VA_ARGS__)
-#define ULOG_WARN(tag, msg, ...)  ulog(ULOG_STDOUT, ULOG_WARN_LVL, tag, msg, ##__VA_ARGS__)
-#define ULOG_ERR(tag, msg, ...)   ulog(ULOG_STDOUT, ULOG_ERR_LVL, tag, msg, ##__VA_ARGS__)
+/** Short macros */
+#define ULOG_TRACE(tag, msg, ...) ulog(ULOG_STDOUT | ULOG_FS, ULOG_TRACE_LVL, tag, msg, ##__VA_ARGS__)
+#define ULOG_DEBUG(tag, msg, ...) ulog(ULOG_STDOUT | ULOG_FS, ULOG_DEBUG_LVL, tag, msg, ##__VA_ARGS__)
+#define ULOG_INFO(tag, msg, ...)  ulog(ULOG_STDOUT | ULOG_FS, ULOG_INFO_LVL, tag, msg, ##__VA_ARGS__)
+#define ULOG_WARN(tag, msg, ...)  ulog(ULOG_STDOUT | ULOG_FS, ULOG_WARN_LVL, tag, msg, ##__VA_ARGS__)
+#define ULOG_ERR(tag, msg, ...)   ulog(ULOG_STDOUT | ULOG_FS, ULOG_ERR_LVL, tag, msg, ##__VA_ARGS__)
 
 #ifdef __cplusplus
 }
