@@ -14,8 +14,6 @@
 extern "C" {
 #endif
 
-#include "ulog_conf.h"
-
 /** ulog destination */
 enum {
     ULOG_NULL    = 0x00,    /**< Log to null */
