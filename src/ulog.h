@@ -14,6 +14,8 @@
 extern "C" {
 #endif
 
+#include "ulog_conf.h"
+
 /** ulog destination */
 enum {
     ULOG_NULL    = 0x00,    /**< Log to null */
@@ -24,11 +26,11 @@ enum {
 /** ulog level */
 enum {
     ULOG_NONE_LVL    = 0x00,
-    ULOG_TRACE_LVL   = 0x01,    /**< Log trace */
-    ULOG_DEBUG_LVL   = 0x02,    /**< Log debug */
-    ULOG_INFO_LVL    = 0x03,    /**< Log information */
-    ULOG_WARN_LVL    = 0x04,    /**< Log warning */
-    ULOG_ERR_LVL     = 0x05,    /**< Log error */
+    ULOG_TRACE_LVL   = 0x01,    /**< trace */
+    ULOG_DEBUG_LVL   = 0x02,    /**< debug */
+    ULOG_INFO_LVL    = 0x03,    /**< information */
+    ULOG_WARN_LVL    = 0x04,    /**< warning */
+    ULOG_ERR_LVL     = 0x05,    /**< error */
 };
 
 /** Initalization */

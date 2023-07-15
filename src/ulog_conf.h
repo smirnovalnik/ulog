@@ -2,25 +2,31 @@
   ******************************************************************************
   * @file    ulog_conf.h
   * @author  Alexander Smirnov
-  * @brief   Micro logging system
+  * @brief   Configuration template
   * @copyright Copyright (C) 2016, 2018, 2020, 2023 Alexander Smirnov
   ******************************************************************************
 */
+
+#ifndef _ULOG_CONF_H_
+#define _ULOG_CONF_H_
+
+// General settings
 
 #define ULOG_PRINT_TAG          1
 #define ULOG_PRINT_COLOR        1
 #define ULOG_PRINT_LEVEL        1
 #define ULOG_ENDLINE            "\n"
 #define ULOG_REMOVE_SPACES      1
-
 #define ULOG_TIMESTAMP_MS       1
-
-#define ULOG_USE_MUTEX          1
-#define ULOG_USE_POSIX_MUTEX    1
 
 #define ULOG_FILE_SYSTEM        1
 #define ULOG_FILE_NAME          "system.log"
 #define ULOG_MAX_FILE_SIZE      (10 * 1024 * 1024)   /* bytes */
+
+// Target specific settings
+
+#define ULOG_USE_MUTEX          1
+#define ULOG_USE_POSIX_MUTEX    1
 #define ULOG_USE_POSIX_IO       1
 
 #if ULOG_USE_MUTEX == 1
@@ -51,3 +57,5 @@ static xSemaphoreHandle ulog_mutex;
 #else
 #include "fatfs.h"      /* FatFs from Chan */
 #endif
+
+#endif /* _ULOG_CONF_H_ */

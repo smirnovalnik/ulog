@@ -8,7 +8,6 @@
 */
 
 #include "ulog.h"
-#include "ulog_conf.h"
 
 #include <stdarg.h>
 #include <string.h>
@@ -71,10 +70,10 @@ void ulog(unsigned char dest, unsigned char level, const char* tag, const char* 
     ULOG_MUTEX_TAKE();
 
     static va_list args;
-    #if ULOG_TIMESTAMP_MS == 0
-    static time_t rawtime;
-    #else
+    #if ULOG_TIMESTAMP_MS == 1
     static struct timespec rawtime;
+    #else
+    static time_t rawtime;
     #endif
     int ms = 0;
     static struct tm* timeinfo;
@@ -84,18 +83,20 @@ void ulog(unsigned char dest, unsigned char level, const char* tag, const char* 
     #endif
     static char fmsg[64];
 
-    #if ULOG_TIMESTAMP_MS == 0
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
-    #else
+    #if ULOG_TIMESTAMP_MS == 1
     clock_gettime(CLOCK_REALTIME, &rawtime);
     timeinfo  = localtime(&rawtime.tv_sec);
     ms = rawtime.tv_nsec / 1000000;
-    #endif
-
     snprintf(ftime, sizeof(ftime), "%04d/%02d/%02d %02d:%02d:%02d.%03d",
-            timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour,
-            timeinfo->tm_min, timeinfo->tm_sec, ms);
+        timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour,
+        timeinfo->tm_min, timeinfo->tm_sec, ms);
+    #else
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+    snprintf(ftime, sizeof(ftime), "%04d/%02d/%02d %02d:%02d:%02d",
+        timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour,
+        timeinfo->tm_min, timeinfo->tm_sec);
+    #endif
 
     #if ULOG_PRINT_TAG == 1
     snprintf(ftag, sizeof(ftag), "[%10.10s]", tag);

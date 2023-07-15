@@ -5,6 +5,7 @@ Micro log library for embedded systems.
 
 ```c
 #include "ulog.h"
+
 ...
 /* Init ulog. Print to stdout */
 ulog_init(ULOG_STDOUT);
@@ -25,6 +26,16 @@ ulog_init(ULOG_STDOUT | ULOG_FS);
 ulog(ULOG_STDOUT, ULOG_ERR_LVL, "protect", "overvoltage: %f", v);
 /* Print to stdout and file system */
 ulog(ULOG_STDOUT | ULOG_FS, ULOG_INFO_LVL, "can", "received id: %d cmd: %s", id, cmd);
+
+...
+/* Using defines */
+ulog_init(ULOG_STDOUT);
+
+static const char* TAG = "i2c";
+
+ULOG_INFO(TAG, "init");
+ULOG_ERR(ERR, "sending rc:%d", rc);
+
 ```
 
 ## Example of output
