@@ -82,11 +82,11 @@ void ulog(unsigned char dest, unsigned char level, const char* tag, const char* 
     #if ULOG_PRINT_TAG == 1
     static char ftag[sizeof("[          ]")];
     #endif
-    static char fmsg[64];
+    static char fmsg[80];
 
     #if ULOG_TIMESTAMP_MS == 1
     clock_gettime(CLOCK_REALTIME, &rawtime);
-    timeinfo  = localtime(&rawtime.tv_sec);
+    timeinfo = localtime(&rawtime.tv_sec);
     ms = rawtime.tv_nsec / 1000000;
     snprintf(ftime, sizeof(ftime), "%04d/%02d/%02d %02d:%02d:%02d.%03d",
         timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour,
