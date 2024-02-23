@@ -21,7 +21,7 @@
 
 #define ULOG_FILE_SYSTEM        1
 #define ULOG_FILE_NAME          "system.log"
-#define ULOG_MAX_FILE_SIZE      (10 * 1024 * 1024)   /* bytes */
+#define ULOG_MAX_FILE_SIZE      (1 * 1024 * 1024)   /* bytes */
 
 // Target specific settings
 
