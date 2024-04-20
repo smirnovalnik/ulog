@@ -28,13 +28,12 @@ ulog(ULOG_STDOUT, ULOG_ERR_LVL, "protect", "overvoltage: %f", v);
 ulog(ULOG_STDOUT | ULOG_FS, ULOG_INFO_LVL, "can", "received id: %d cmd: %s", id, cmd);
 
 ...
-/* Using defines */
 ulog_init(ULOG_STDOUT);
 
 static const char* TAG = "i2c";
 
 ULOG_INFO(TAG, "init");
-ULOG_ERR(ERR, "sending rc:%d", rc);
+ULOG_ERR(TAG, "sending rc:%d", rc);
 
 ```
 
