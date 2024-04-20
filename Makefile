@@ -13,6 +13,7 @@ tests/tests.c \
 
 C_INCLUDES = \
 -Isrc \
+-Itemplates \
 -Itests \
 
 C_FLAGS = -std=c99  -Wall -Wpedantic -Wextra -fpic
