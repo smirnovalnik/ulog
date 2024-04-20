@@ -3,7 +3,7 @@
   * @file    ulog.c
   * @author  Alexander Smirnov
   * @brief   Micro logging system
-  * @copyright Copyright (C) 2016, 2018, 2020, 2023 Alexander Smirnov
+  * @copyright Copyright (C) 2016 - 2024 Alexander Smirnov
   ******************************************************************************
 */
 

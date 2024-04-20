@@ -3,7 +3,7 @@
   * @file    ulog.h
   * @author  Alexander Smirnov
   * @brief   Micro logging system
-  * @copyright Copyright (C) 2016, 2018, 2020, 2023 Alexander Smirnov
+  * @copyright Copyright (C) 2016 - 2024 Alexander Smirnov
   ******************************************************************************
 */
 
@@ -31,9 +31,9 @@ enum {
     ULOG_ERR_LVL     = 0x05,    /**< error */
 };
 
-/** Initalization */
+/** Initialization */
 void ulog_init(char dest);
-/** Deinitalization */
+/** Deinitialization */
 void ulog_deinit(void);
 /** Get current destination */
 char ulog_get_dest(void);

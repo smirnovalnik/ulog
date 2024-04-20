@@ -3,7 +3,7 @@
   * @file    ulog_conf.h
   * @author  Alexander Smirnov
   * @brief   Configuration template
-  * @copyright Copyright (C) 2016, 2018, 2020, 2023 Alexander Smirnov
+  * @copyright Copyright (C) 2016 - 2024 Alexander Smirnov
   ******************************************************************************
 */
 
@@ -16,7 +16,7 @@
 #define ULOG_PRINT_COLOR        1
 #define ULOG_PRINT_LEVEL        1
 #define ULOG_ENDLINE            "\n"
-#define ULOG_REMOVE_SPACES      1
+#define ULOG_REMOVE_SPACES      0
 #define ULOG_TIMESTAMP_MS       1
 
 #define ULOG_FILE_SYSTEM        1
