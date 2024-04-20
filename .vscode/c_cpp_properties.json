@@ -1,0 +1,32 @@
+{
+  "env": {
+    "ProjectIncludes": [
+      // compiler
+      "/usr/bin/clang",
+      // project
+      "${workspaceFolder}/src",
+      "${workspaceFolder}/templates"
+    ],
+    "CompileArgsDefault": [
+      "-Wall",
+      "-std=c2x"
+    ],
+    "CoreDefines": [
+      "NDEBUG"
+    ]
+  },
+  "configurations": [
+    {
+      "name": "macOS-AppleSilicon",
+      "compilerArgs": ["${CompileArgsDefault}"],
+      "compilerPath": "/usr/bin/clang",
+      "includePath": [
+        "${ProjectIncludes}"
+      ],
+      "defines": ["${CoreDefines}"],
+      "cStandard": "c23",
+      "intelliSenseMode": "clang-arm"
+    }
+  ],
+  "version": 4
+}

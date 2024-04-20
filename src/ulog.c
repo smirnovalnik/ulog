@@ -70,39 +70,43 @@ void ulog(unsigned char dest, unsigned char level, const char* tag, const char* 
     ULOG_CREATE_MUTEX();
     ULOG_MUTEX_TAKE();
 
-    static va_list args;
-    #if ULOG_TIMESTAMP_MS == 1
-    static struct timespec rawtime;
-    #else
-    static time_t rawtime;
-    #endif
-    int ms = 0;
+    #if ULOG_TIMESTAMP == 1
     static struct tm* timeinfo;
-    static char ftime[sizeof("2000/01/01 06:03:22.000")];
-    #if ULOG_PRINT_TAG == 1
-    static char ftag[sizeof("[          ]")];
-    #endif
-    static char fmsg[80];
-
     #if ULOG_TIMESTAMP_MS == 1
+    static char ftime[sizeof("2000/01/01 06:03:22.000")];
+    static struct timespec rawtime;
+
     clock_gettime(CLOCK_REALTIME, &rawtime);
     timeinfo = localtime(&rawtime.tv_sec);
-    ms = rawtime.tv_nsec / 1000000;
+    int ms = rawtime.tv_nsec / 1000000;
     snprintf(ftime, sizeof(ftime), "%04d/%02d/%02d %02d:%02d:%02d.%03d",
         timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour,
         timeinfo->tm_min, timeinfo->tm_sec, ms);
     #else
+    static char ftime[sizeof("2000/01/01 06:03:22")];
+    static time_t rawtime;
+
     time(&rawtime);
     timeinfo = localtime(&rawtime);
     snprintf(ftime, sizeof(ftime), "%04d/%02d/%02d %02d:%02d:%02d",
         timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour,
         timeinfo->tm_min, timeinfo->tm_sec);
     #endif
+    #else
+    static char ftime[sizeof("(0123456789)")];
+    int time;
+
+    time = clock();
+    snprintf(ftime, sizeof(ftime), "(%010d)", time);
+    #endif
 
     #if ULOG_PRINT_TAG == 1
+    static char ftag[sizeof("[          ]")];
     snprintf(ftag, sizeof(ftag), "[%10.10s]", tag);
     #endif
 
+    static va_list args;
+    static char fmsg[80];
     va_start(args, msg);
     vsnprintf(fmsg, sizeof(fmsg), msg, args);
     va_end(args);

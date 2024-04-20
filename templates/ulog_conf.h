@@ -11,20 +11,20 @@
 #define _ULOG_CONF_H_
 
 // General settings
+#define ULOG_TIMESTAMP          1     // Timestamp or clock since startup
+#define ULOG_TIMESTAMP_MS       1     // Add milliseconds to timestamp
+#define ULOG_PRINT_TAG          1     // Print tag
+#define ULOG_PRINT_COLOR        1     // Print messages in color
+#define ULOG_PRINT_LEVEL        1     // Print level
 
-#define ULOG_PRINT_TAG          1
-#define ULOG_PRINT_COLOR        1
-#define ULOG_PRINT_LEVEL        1
-#define ULOG_ENDLINE            "\n"
-#define ULOG_REMOVE_SPACES      0
-#define ULOG_TIMESTAMP_MS       1
+#define ULOG_ENDLINE            "\n"  // End of line
+#define ULOG_REMOVE_SPACES      0     // Remove spaces (> 2 in row) from the message
 
-#define ULOG_FILE_SYSTEM        1
-#define ULOG_FILE_NAME          "system.log"
-#define ULOG_MAX_FILE_SIZE      (1 * 1024 * 1024)   /* bytes */
+#define ULOG_FILE_SYSTEM        1     // Enable log to file system
+#define ULOG_FILE_NAME          "system.log"        // File name
+#define ULOG_MAX_FILE_SIZE      (1 * 1024 * 1024)   // Max file size in bytes before rotation
 
 // Target specific settings
-
 #define ULOG_USE_MUTEX          1
 #define ULOG_USE_POSIX_MUTEX    1
 #define ULOG_USE_POSIX_IO       1
