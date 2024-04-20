@@ -24,8 +24,13 @@
 static char* ulog_level_color[] = \
     {ULOG_COLOR_RESET, ULOG_COLOR_TRACE, ULOG_COLOR_DEBUG, ULOG_COLOR_RESET, ULOG_COLOR_WARN, ULOG_COLOR_ERR};
 
+#if ULOG_LEVEL_SHORT == 1
+static char* ulog_level_str[] = \
+    {"", "T", "D", "I", "W", "E"};
+#else
 static char* ulog_level_str[] = \
     {"", "TRACE", "DEBUG", " INFO", " WARN", "  ERR"};
+#endif
 
 static char ulog_dest_available = ULOG_NULL;
 static char ulog_level = ULOG_DEBUG_LVL;

@@ -16,6 +16,7 @@
 #define ULOG_PRINT_TAG          1     // Print tag
 #define ULOG_PRINT_COLOR        1     // Print messages in color
 #define ULOG_PRINT_LEVEL        1     // Print level
+#define ULOG_LEVEL_SHORT        0     // Short level name
 
 #define ULOG_ENDLINE            "\n"  // End of line
 #define ULOG_REMOVE_SPACES      0     // Remove spaces (> 2 in row) from the message
