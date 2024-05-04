@@ -1,4 +1,5 @@
 # ulog
+
 Micro log library for embedded systems.
 
 ## Using
@@ -48,7 +49,7 @@ ulog(ULOG_STDOUT | ULOG_FS, ULOG_INFO_LVL, "can", "received id: %d cmd: %s", id,
 
 ## Examples of output
 
-With timpestamp, level and tag:
+With timestamp, level and tag:
 
 ```bash
 2023/06/25 08:51:59.000 [      tag1] DEBUG example debug message 1

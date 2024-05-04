@@ -232,9 +232,17 @@ err:    fclose(fp);
             rc = f_write(&f, ftime, sizeof(ftime) - 1, &bw);
             if (rc) goto err;
 
+            #if ULOG_PRINT_TAG == 1
             /* Write tag */
             rc = f_write(&f, ftag, sizeof(ftag) - 1, &bw);
             if (rc) goto err;
+            #endif
+
+            #if ULOG_PRINT_LEVEL == 1
+            /* Write level */
+            rc = f_write(&f, ulog_level_str[level], sizeof(ftag) - 1, &bw);
+            if (rc < 0) goto err;
+            #endif
 
             /* Write message string */
             rc = f_write(&f, fmsg, strlen(fmsg), &bw);
