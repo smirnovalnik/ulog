@@ -48,8 +48,6 @@ char ulog_get_level(void);
   */
 void ulog(unsigned char dest, unsigned char level, const char* tag, const char* msg, ...);
 
-#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-
 /** Short macros */
 #define ULOG_TRACE(tag, msg, ...) ulog(ULOG_STDOUT | ULOG_FS, ULOG_TRACE_LVL, tag, msg, ##__VA_ARGS__)
 #define ULOG_DEBUG(tag, msg, ...) ulog(ULOG_STDOUT | ULOG_FS, ULOG_DEBUG_LVL, tag, msg, ##__VA_ARGS__)
