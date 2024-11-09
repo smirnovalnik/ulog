@@ -84,18 +84,18 @@ void ulog(unsigned char dest, unsigned char level, const char* tag, const char* 
     clock_gettime(CLOCK_REALTIME, &rawtime);
     timeinfo = localtime(&rawtime.tv_sec);
     int ms = rawtime.tv_nsec / 1000000;
-    snprintf(ftime, sizeof(ftime), "%04d/%02d/%02d %02d:%02d:%02d.%03d",
-        timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour,
-        timeinfo->tm_min, timeinfo->tm_sec, ms);
+    int32_t len = strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", timeinfo);
+    if (len > 0 && len < sizeof(ftime))
+    {
+        snprintf(ftime + len, sizeof(ftime) - len, ".%03d", ms);
+    }
     #else
     static char ftime[sizeof("2000/01/01 06:03:22")];
     static time_t rawtime;
 
     time(&rawtime);
     timeinfo = localtime(&rawtime);
-    snprintf(ftime, sizeof(ftime), "%04d/%02d/%02d %02d:%02d:%02d",
-        timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour,
-        timeinfo->tm_min, timeinfo->tm_sec);
+    strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", timeinfo);
     #endif
     #else
     static char ftime[sizeof("(0123456789)")];
