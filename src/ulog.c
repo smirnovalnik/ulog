@@ -84,7 +84,7 @@ void ulog(unsigned char dest, unsigned char level, const char* tag, const char* 
     clock_gettime(CLOCK_REALTIME, &rawtime);
     timeinfo = localtime(&rawtime.tv_sec);
     int ms = rawtime.tv_nsec / 1000000;
-    int32_t len = strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", timeinfo);
+    int len = strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", timeinfo);
     if (len > 0 && len < sizeof(ftime))
     {
         snprintf(ftime + len, sizeof(ftime) - len, ".%03d", ms);
