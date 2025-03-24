@@ -111,7 +111,7 @@ void ulog(unsigned char dest, unsigned char level, const char* tag, const char* 
     #endif
 
     static va_list args;
-    static char fmsg[80];
+    static char fmsg[ULOG_MESSAGE_LEN];
     va_start(args, msg);
     vsnprintf(fmsg, sizeof(fmsg), msg, args);
     va_end(args);

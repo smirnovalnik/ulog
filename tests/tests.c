@@ -45,8 +45,8 @@ int main(void)
     ULOG_WARN("tag4", "ULOG_WARN %d", i++);
     ULOG_ERR("tag5", "ULOG_ERR %d", i++);
 
-    ulog(ULOG_STDOUT, ULOG_ERR_LVL, "tag5", "very looooooooooooooooooooooooooooong striiiiiiiiiiiiiiiiiiiiiiiiiing", i++);
-    ulog(ULOG_STDOUT, ULOG_ERR_LVL, "tag5", "many\nlines\nwith\ttabs", i++);
+    ulog(ULOG_STDOUT, ULOG_ERR_LVL, "tag5", "very looooooooooooooooooooooooooooong striiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiing %d", i++);
+    ulog(ULOG_STDOUT, ULOG_ERR_LVL, "tag5", "many\nlines\nwith\ttabs %d", i++);
     ulog(ULOG_STDOUT, ULOG_ERR_LVL, "tag6", "new data %d", i++);
 
     ulog_init(ULOG_STDOUT | ULOG_FS);
