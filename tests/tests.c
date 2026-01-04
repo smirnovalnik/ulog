@@ -49,6 +49,7 @@ int main(void)
     ulog(ULOG_STDOUT, ULOG_ERR_LVL, "tag5", "many\nlines\nwith\ttabs %d", i++);
     ulog(ULOG_STDOUT, ULOG_ERR_LVL, "tag6", "new data %d", i++);
 
+    ulog_deinit();
     ulog_init(ULOG_STDOUT | ULOG_FS);
     ulog(ULOG_FS, ULOG_NONE_LVL, "tag0", "none %d", i++);
     ulog(ULOG_FS, ULOG_TRACE_LVL, "tag1", "trace %d", i++);

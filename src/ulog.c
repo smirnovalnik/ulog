@@ -33,12 +33,13 @@ static const char* const ulog_level_str[] = \
     {"", "TRACE", "DEBUG", " INFO", " WARN", "  ERR"};
 #endif
 
-static uint8_t ulog_dest_available = ULOG_NULL;
-static uint8_t ulog_level = ULOG_DEBUG_LVL;
+static volatile uint8_t ulog_dest_available = ULOG_NULL;
+static volatile uint8_t ulog_level = ULOG_DEBUG_LVL;
 
 void ulog_init(uint8_t dest)
 {
     ulog_dest_available = dest;
+    ULOG_CREATE_MUTEX();
 }
 
 void ulog_deinit(void)
@@ -70,10 +71,12 @@ void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
     if ((dest & ulog_dest_available) == ULOG_NULL)
         return;
 
-    if (level < ulog_level)
+    if (level < ulog_level || level > ULOG_ERR_LVL)
         return;
 
-    ULOG_CREATE_MUTEX();
+    if (tag == NULL || msg == NULL)
+        return;
+
     ULOG_MUTEX_TAKE();
 
     #if ULOG_TIMESTAMP == 1
@@ -169,7 +172,7 @@ void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
         {
             rc = fseek(fp, 0, SEEK_END);
             long size = ftell(fp);
-            if (rc != -1 && size >= ULOG_MAX_FILE_SIZE)
+            if (rc != -1 && size != -1 && size >= ULOG_MAX_FILE_SIZE)
             {
                 remove(ULOG_FILE_NAME".bak");
                 rename(ULOG_FILE_NAME, ULOG_FILE_NAME".bak");
@@ -202,9 +205,9 @@ void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
             /* Write endline character */
             rc = fprintf(fp, "%s", ULOG_ENDLINE);
             if (rc < 0) goto err;
-        }
 
-err:    fclose(fp);
+err:        fclose(fp);
+        }
         #else
         FIL f;
         FRESULT rc;

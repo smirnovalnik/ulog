@@ -14,6 +14,10 @@
 
 #include "ulog_conf.h"
 
+ #if ULOG_MESSAGE_LEN > 256
+ #warning "ULOG_MESSAGE_LEN is very large, may cause stack overflow"
+ #endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
