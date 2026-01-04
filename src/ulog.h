@@ -11,12 +11,7 @@
 #define _ULOG_H_
 
 #include <stdint.h>
-
-#include "ulog_conf.h"
-
- #if ULOG_MESSAGE_LEN > 256
- #warning "ULOG_MESSAGE_LEN is very large, may cause stack overflow"
- #endif
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,8 +33,6 @@ enum {
     ULOG_WARN_LVL    = 0x04,    /**< warning */
     ULOG_ERR_LVL     = 0x05,    /**< error */
 };
-
-#if ULOG_ENABLE == 1
 
 /** Initialization */
 void ulog_init(uint8_t dest);
@@ -68,18 +61,6 @@ void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...);
   * @param  len Length of data in bytes
   */
 void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, const void* data, size_t len);
-
-#else
-
-#define ulog_init(dest)         ((void)0)
-#define ulog_deinit()           ((void)0)
-#define ulog_get_dest()         (ULOG_NULL)
-#define ulog_set_level(level)   ((void)0)
-#define ulog_get_level()        (ULOG_NONE_LVL)
-#define ulog(dest, level, tag, msg, ...) ((void)0)
-#define ulog_dump(dest, level, tag, desc, data, len) ((void)0)
-
-#endif /* ULOG_ENABLE */
 
 /** Short macros */
 #define ULOG_TRACE(tag, ...) ulog(ULOG_STDOUT | ULOG_FS, ULOG_TRACE_LVL, tag, __VA_ARGS__)

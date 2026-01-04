@@ -8,6 +8,11 @@
 */
 
 #include "ulog.h"
+#include "ulog_conf.h"
+
+#if ULOG_MESSAGE_LEN > 256
+#warning "ULOG_MESSAGE_LEN is very large, may cause stack overflow"
+#endif
 
 #if ULOG_ENABLE == 1
 
@@ -460,5 +465,15 @@ void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, c
 
     ULOG_MUTEX_GIVE();
 }
+
+#else
+
+#define ulog_init(dest)         ((void)0)
+#define ulog_deinit()           ((void)0)
+#define ulog_get_dest()         (ULOG_NULL)
+#define ulog_set_level(level)   ((void)0)
+#define ulog_get_level()        (ULOG_NONE_LVL)
+#define ulog(dest, level, tag, msg, ...) ((void)0)
+#define ulog_dump(dest, level, tag, desc, data, len) ((void)0)
 
 #endif /* ULOG_ENABLE */
