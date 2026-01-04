@@ -269,4 +269,196 @@ err:        f_close(&f);
     ULOG_MUTEX_GIVE();
 }
 
+/**
+  * @brief  Dump binary buffer in hexadecimal format
+  */
+void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, const void* data, size_t len)
+{
+    if ((dest & ulog_dest_available) == ULOG_NULL)
+        return;
+
+    if (level < ulog_level || level > ULOG_ERR_LVL)
+        return;
+
+    if (tag == NULL || desc == NULL || data == NULL || len == 0)
+        return;
+
+    const uint8_t* bytes = (const uint8_t*)data;
+
+    ULOG_MUTEX_TAKE();
+
+    /* Print header with description */
+    #if ULOG_TIMESTAMP == 1
+    struct tm* timeinfo;
+    #if ULOG_TIMESTAMP_MS == 1
+    char ftime[sizeof("2000/01/01 06:03:22.000")];
+    struct timespec rawtime;
+
+    clock_gettime(CLOCK_REALTIME, &rawtime);
+    timeinfo = localtime(&rawtime.tv_sec);
+    int ms = (int)(rawtime.tv_nsec / 1000000);
+    int len_t = (int)strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", timeinfo);
+    if (len_t > 0 && (size_t)len_t < sizeof(ftime))
+    {
+        snprintf(ftime + len_t, sizeof(ftime) - (size_t)len_t, ".%03d", ms);
+    }
+    #else
+    char ftime[sizeof("2000/01/01 06:03:22")];
+    time_t rawtime;
+
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+    strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", timeinfo);
+    #endif
+    #else
+    char ftime[sizeof("(0123456789)")];
+    unsigned int ticks;
+
+    ticks = (unsigned int)clock();
+    snprintf(ftime, sizeof(ftime), "(%010u)", ticks);
+    #endif
+
+    #if ULOG_PRINT_TAG == 1
+    char ftag[sizeof("[          ]")];
+    snprintf(ftag, sizeof(ftag), "[%10.10s]", tag);
+    #else
+    (void)tag;
+    #endif
+
+    /* Print description line */
+    if (dest & ulog_dest_available & ULOG_STDOUT)
+    {
+        #if ULOG_PRINT_COLOR == 1 && ULOG_PRINT_LEVEL == 1 && ULOG_PRINT_TAG == 1
+        printf("%s %s %s%s %s (%zu bytes)%s" ULOG_ENDLINE,
+               ftime, ftag, ulog_level_color[level], ulog_level_str[level], desc, len,
+               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
+        #elif ULOG_PRINT_COLOR == 1 && ULOG_PRINT_LEVEL == 1
+        printf("%s %s%s %s (%zu bytes)%s" ULOG_ENDLINE,
+               ftime, ulog_level_color[level], ulog_level_str[level], desc, len,
+               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
+        #elif ULOG_PRINT_COLOR == 1 && ULOG_PRINT_TAG == 1
+        printf("%s %s %s%s (%zu bytes)%s" ULOG_ENDLINE,
+               ftime, ftag, ulog_level_color[level], desc, len,
+               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
+        #elif ULOG_PRINT_LEVEL == 1 && ULOG_PRINT_TAG == 1
+        printf("%s %s %s %s (%zu bytes)" ULOG_ENDLINE, ftime, ftag, ulog_level_str[level], desc, len);
+        #elif ULOG_PRINT_COLOR == 1
+        printf("%s %s%s (%zu bytes)%s" ULOG_ENDLINE,
+               ftime, ulog_level_color[level], desc, len,
+               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
+        #elif ULOG_PRINT_LEVEL == 1
+        printf("%s %s %s (%zu bytes)" ULOG_ENDLINE, ftime, ulog_level_str[level], desc, len);
+        #elif ULOG_PRINT_TAG == 1
+        printf("%s %s %s (%zu bytes)" ULOG_ENDLINE, ftime, ftag, desc, len);
+        #else
+        printf("%s %s (%zu bytes)" ULOG_ENDLINE, ftime, desc, len);
+        #endif
+    }
+
+    /* Dump binary data line by line */
+    for (size_t offset = 0; offset < len; offset += ULOG_DUMP_BYTES_PER_LINE)
+    {
+        char hex_buf[ULOG_DUMP_BYTES_PER_LINE * 3 + 1];
+        char ascii_buf[ULOG_DUMP_BYTES_PER_LINE + 1];
+        size_t line_len = (len - offset < ULOG_DUMP_BYTES_PER_LINE) ? (len - offset) : ULOG_DUMP_BYTES_PER_LINE;
+
+        /* Format hex bytes */
+        for (size_t i = 0; i < line_len; i++)
+        {
+            snprintf(hex_buf + i * 3, 4, "%02x ", bytes[offset + i]);
+            #if ULOG_DUMP_SHOW_ASCII == 1
+            ascii_buf[i] = (bytes[offset + i] >= 32 && bytes[offset + i] <= 126) ? bytes[offset + i] : '.';
+            #endif
+        }
+
+        /* Pad if line is not full */
+        for (size_t i = line_len; i < ULOG_DUMP_BYTES_PER_LINE; i++)
+        {
+            snprintf(hex_buf + i * 3, 4, "   ");
+            #if ULOG_DUMP_SHOW_ASCII == 1
+            ascii_buf[i] = ' ';
+            #endif
+        }
+
+        hex_buf[ULOG_DUMP_BYTES_PER_LINE * 3] = '\0';
+        #if ULOG_DUMP_SHOW_ASCII == 1
+        ascii_buf[ULOG_DUMP_BYTES_PER_LINE] = '\0';
+        #endif
+
+        /* Print to stdout */
+        if (dest & ulog_dest_available & ULOG_STDOUT)
+        {
+            #if ULOG_DUMP_SHOW_ASCII == 1
+            printf("  %04zx: %s %s" ULOG_ENDLINE, offset, hex_buf, ascii_buf);
+            #else
+            printf("  %04zx: %s" ULOG_ENDLINE, offset, hex_buf);
+            #endif
+        }
+
+        /* Log to file */
+        #if ULOG_FILE_SYSTEM == 1
+        if (dest & ulog_dest_available & ULOG_FS)
+        {
+            #if ULOG_USE_POSIX_IO == 1
+            FILE *fp;
+            if ((fp = fopen(ULOG_FILE_NAME, "a")) != NULL)
+            {
+                if (offset == 0)
+                {
+                    fprintf(fp, "%s ", ftime);
+                    #if ULOG_PRINT_TAG == 1
+                    fprintf(fp, "%s ", ftag);
+                    #endif
+                    #if ULOG_PRINT_LEVEL == 1
+                    fprintf(fp, "%s ", ulog_level_str[level]);
+                    #endif
+                    fprintf(fp, "%s (%zu bytes)%s", desc, len, ULOG_ENDLINE);
+                }
+                #if ULOG_DUMP_SHOW_ASCII == 1
+                fprintf(fp, "  %04zx: %s %s%s", offset, hex_buf, ascii_buf, ULOG_ENDLINE);
+                #else
+                fprintf(fp, "  %04zx: %s%s", offset, hex_buf, ULOG_ENDLINE);
+                #endif
+                fclose(fp);
+            }
+            #else
+            FIL f;
+            FRESULT rc;
+            UINT bw;
+            char line_buf[128];
+
+            rc = f_open(&f, ULOG_FILE_NAME, FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_APPEND);
+            if (rc == FR_OK)
+            {
+                if (offset == 0)
+                {
+                    f_write(&f, ftime, strlen(ftime), &bw);
+                    f_write(&f, " ", 1, &bw);
+                    #if ULOG_PRINT_TAG == 1
+                    f_write(&f, ftag, strlen(ftag), &bw);
+                    f_write(&f, " ", 1, &bw);
+                    #endif
+                    #if ULOG_PRINT_LEVEL == 1
+                    f_write(&f, ulog_level_str[level], strlen(ulog_level_str[level]), &bw);
+                    f_write(&f, " ", 1, &bw);
+                    #endif
+                    snprintf(line_buf, sizeof(line_buf), "%s (%zu bytes)%s", desc, len, ULOG_ENDLINE);
+                    f_write(&f, line_buf, strlen(line_buf), &bw);
+                }
+                #if ULOG_DUMP_SHOW_ASCII == 1
+                snprintf(line_buf, sizeof(line_buf), "  %04zx: %s %s%s", offset, hex_buf, ascii_buf, ULOG_ENDLINE);
+                #else
+                snprintf(line_buf, sizeof(line_buf), "  %04zx: %s%s", offset, hex_buf, ULOG_ENDLINE);
+                #endif
+                f_write(&f, line_buf, strlen(line_buf), &bw);
+                f_close(&f);
+            }
+            #endif /* ULOG_USE_POSIX_IO */
+        }
+        #endif /* ULOG_FILE_SYSTEM */
+    }
+
+    ULOG_MUTEX_GIVE();
+}
+
 #endif /* ULOG_ENABLE */

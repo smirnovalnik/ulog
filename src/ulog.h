@@ -58,6 +58,17 @@ uint8_t ulog_get_level(void);
   */
 void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...);
 
+/**
+  * Dump binary buffer in hexadecimal format
+  * @param  dest Destination (ULOG_STDOUT, ULOG_FS, or combination)
+  * @param  level Log level
+  * @param  tag Tag string
+  * @param  desc Description of the buffer
+  * @param  data Pointer to binary data
+  * @param  len Length of data in bytes
+  */
+void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, const void* data, size_t len);
+
 #else
 
 #define ulog_init(dest)         ((void)0)
@@ -66,6 +77,7 @@ void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...);
 #define ulog_set_level(level)   ((void)0)
 #define ulog_get_level()        (ULOG_NONE_LVL)
 #define ulog(dest, level, tag, msg, ...) ((void)0)
+#define ulog_dump(dest, level, tag, desc, data, len) ((void)0)
 
 #endif /* ULOG_ENABLE */
 
@@ -75,6 +87,13 @@ void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...);
 #define ULOG_INFO(tag, ...)  ulog(ULOG_STDOUT | ULOG_FS, ULOG_INFO_LVL, tag, __VA_ARGS__)
 #define ULOG_WARN(tag, ...)  ulog(ULOG_STDOUT | ULOG_FS, ULOG_WARN_LVL, tag, __VA_ARGS__)
 #define ULOG_ERR(tag, ...)   ulog(ULOG_STDOUT | ULOG_FS, ULOG_ERR_LVL, tag, __VA_ARGS__)
+
+/** Binary dump macros */
+#define ULOG_DUMP_TRACE(tag, desc, data, len) ulog_dump(ULOG_STDOUT | ULOG_FS, ULOG_TRACE_LVL, tag, desc, data, len)
+#define ULOG_DUMP_DEBUG(tag, desc, data, len) ulog_dump(ULOG_STDOUT | ULOG_FS, ULOG_DEBUG_LVL, tag, desc, data, len)
+#define ULOG_DUMP_INFO(tag, desc, data, len)  ulog_dump(ULOG_STDOUT | ULOG_FS, ULOG_INFO_LVL, tag, desc, data, len)
+#define ULOG_DUMP_WARN(tag, desc, data, len)  ulog_dump(ULOG_STDOUT | ULOG_FS, ULOG_WARN_LVL, tag, desc, data, len)
+#define ULOG_DUMP_ERR(tag, desc, data, len)   ulog_dump(ULOG_STDOUT | ULOG_FS, ULOG_ERR_LVL, tag, desc, data, len)
 
 #ifdef __cplusplus
 }
