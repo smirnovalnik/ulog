@@ -3,12 +3,16 @@
   * @file    ulog.h
   * @author  Alexander Smirnov
   * @brief   Micro logging system
-  * @copyright Copyright (C) 2016 - 2024 Alexander Smirnov
+  * @copyright Copyright (C) 2016 - 2026 Alexander Smirnov
   ******************************************************************************
 */
 
 #ifndef _ULOG_H_
 #define _ULOG_H_
+
+#include <stdint.h>
+
+#include "ulog_conf.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,29 +35,42 @@ enum {
     ULOG_ERR_LVL     = 0x05,    /**< error */
 };
 
+#if ULOG_ENABLE == 1
+
 /** Initialization */
-void ulog_init(char dest);
+void ulog_init(uint8_t dest);
 /** Deinitialization */
 void ulog_deinit(void);
 /** Get current destination */
-char ulog_get_dest(void);
+uint8_t ulog_get_dest(void);
 /** Set maximum level */
-void ulog_set_level(char level);
+void ulog_set_level(uint8_t level);
 /** Get level */
-char ulog_get_level(void);
+uint8_t ulog_get_level(void);
 
 /**
   * Log a message
   * @brief  System log Ex: 2000/01/01 06:03:22.000 [  protect]   ERR Overcurrent
   */
-void ulog(unsigned char dest, unsigned char level, const char* tag, const char* msg, ...);
+void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...);
+
+#else
+
+#define ulog_init(dest)         ((void)0)
+#define ulog_deinit()           ((void)0)
+#define ulog_get_dest()         (ULOG_NULL)
+#define ulog_set_level(level)   ((void)0)
+#define ulog_get_level()        (ULOG_NONE_LVL)
+#define ulog(dest, level, tag, msg, ...) ((void)0)
+
+#endif /* ULOG_ENABLE */
 
 /** Short macros */
-#define ULOG_TRACE(tag, msg, ...) ulog(ULOG_STDOUT | ULOG_FS, ULOG_TRACE_LVL, tag, msg, ##__VA_ARGS__)
-#define ULOG_DEBUG(tag, msg, ...) ulog(ULOG_STDOUT | ULOG_FS, ULOG_DEBUG_LVL, tag, msg, ##__VA_ARGS__)
-#define ULOG_INFO(tag, msg, ...)  ulog(ULOG_STDOUT | ULOG_FS, ULOG_INFO_LVL, tag, msg, ##__VA_ARGS__)
-#define ULOG_WARN(tag, msg, ...)  ulog(ULOG_STDOUT | ULOG_FS, ULOG_WARN_LVL, tag, msg, ##__VA_ARGS__)
-#define ULOG_ERR(tag, msg, ...)   ulog(ULOG_STDOUT | ULOG_FS, ULOG_ERR_LVL, tag, msg, ##__VA_ARGS__)
+#define ULOG_TRACE(tag, ...) ulog(ULOG_STDOUT | ULOG_FS, ULOG_TRACE_LVL, tag, __VA_ARGS__)
+#define ULOG_DEBUG(tag, ...) ulog(ULOG_STDOUT | ULOG_FS, ULOG_DEBUG_LVL, tag, __VA_ARGS__)
+#define ULOG_INFO(tag, ...)  ulog(ULOG_STDOUT | ULOG_FS, ULOG_INFO_LVL, tag, __VA_ARGS__)
+#define ULOG_WARN(tag, ...)  ulog(ULOG_STDOUT | ULOG_FS, ULOG_WARN_LVL, tag, __VA_ARGS__)
+#define ULOG_ERR(tag, ...)   ulog(ULOG_STDOUT | ULOG_FS, ULOG_ERR_LVL, tag, __VA_ARGS__)
 
 #ifdef __cplusplus
 }

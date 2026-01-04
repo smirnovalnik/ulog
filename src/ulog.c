@@ -3,12 +3,13 @@
   * @file    ulog.c
   * @author  Alexander Smirnov
   * @brief   Micro logging system
-  * @copyright Copyright (C) 2016 - 2024 Alexander Smirnov
+  * @copyright Copyright (C) 2016 - 2026 Alexander Smirnov
   ******************************************************************************
 */
 
-#include "ulog_conf.h"
 #include "ulog.h"
+
+#if ULOG_ENABLE == 1
 
 #include <stdarg.h>
 #include <string.h>
@@ -21,21 +22,21 @@
 #define ULOG_COLOR_TRACE     "\x1b[36m"
 #define ULOG_COLOR_RESET     "\x1b[0m"
 
-static char* ulog_level_color[] = \
+static const char* const ulog_level_color[] = \
     {ULOG_COLOR_RESET, ULOG_COLOR_TRACE, ULOG_COLOR_DEBUG, ULOG_COLOR_RESET, ULOG_COLOR_WARN, ULOG_COLOR_ERR};
 
 #if ULOG_LEVEL_SHORT == 1
-static char* ulog_level_str[] = \
+static const char* const ulog_level_str[] = \
     {"", "T", "D", "I", "W", "E"};
 #else
-static char* ulog_level_str[] = \
+static const char* const ulog_level_str[] = \
     {"", "TRACE", "DEBUG", " INFO", " WARN", "  ERR"};
 #endif
 
-static char ulog_dest_available = ULOG_NULL;
-static char ulog_level = ULOG_DEBUG_LVL;
+static uint8_t ulog_dest_available = ULOG_NULL;
+static uint8_t ulog_level = ULOG_DEBUG_LVL;
 
-void ulog_init(char dest)
+void ulog_init(uint8_t dest)
 {
     ulog_dest_available = dest;
 }
@@ -45,18 +46,18 @@ void ulog_deinit(void)
     ulog_dest_available = ULOG_NULL;
 }
 
-char ulog_get_dest(void)
+uint8_t ulog_get_dest(void)
 {
     return ulog_dest_available;
 }
 
-void ulog_set_level(char level)
+void ulog_set_level(uint8_t level)
 {
     if (level >= ULOG_TRACE_LVL && level <= ULOG_ERR_LVL)
         ulog_level = level;
 }
 
-char ulog_get_level(void)
+uint8_t ulog_get_level(void)
 {
     return ulog_level;
 }
@@ -64,7 +65,7 @@ char ulog_get_level(void)
 /**
   * @brief  ulog example: 2000/01/01 06:03:22.000 [  protect] Overcurrent
   */
-void ulog(unsigned char dest, unsigned char level, const char* tag, const char* msg, ...)
+void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
 {
     if ((dest & ulog_dest_available) == ULOG_NULL)
         return;
@@ -76,42 +77,44 @@ void ulog(unsigned char dest, unsigned char level, const char* tag, const char* 
     ULOG_MUTEX_TAKE();
 
     #if ULOG_TIMESTAMP == 1
-    static struct tm* timeinfo;
+    struct tm* timeinfo;
     #if ULOG_TIMESTAMP_MS == 1
-    static char ftime[sizeof("2000/01/01 06:03:22.000")];
-    static struct timespec rawtime;
+    char ftime[sizeof("2000/01/01 06:03:22.000")];
+    struct timespec rawtime;
 
     clock_gettime(CLOCK_REALTIME, &rawtime);
     timeinfo = localtime(&rawtime.tv_sec);
-    int ms = rawtime.tv_nsec / 1000000;
-    int len = strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", timeinfo);
-    if (len > 0 && len < sizeof(ftime))
+    int ms = (int)(rawtime.tv_nsec / 1000000);
+    int len = (int)strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", timeinfo);
+    if (len > 0 && (size_t)len < sizeof(ftime))
     {
-        snprintf(ftime + len, sizeof(ftime) - len, ".%03d", ms);
+        snprintf(ftime + len, sizeof(ftime) - (size_t)len, ".%03d", ms);
     }
     #else
-    static char ftime[sizeof("2000/01/01 06:03:22")];
-    static time_t rawtime;
+    char ftime[sizeof("2000/01/01 06:03:22")];
+    time_t rawtime;
 
     time(&rawtime);
     timeinfo = localtime(&rawtime);
     strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", timeinfo);
     #endif
     #else
-    static char ftime[sizeof("(0123456789)")];
-    int time;
+    char ftime[sizeof("(0123456789)")];
+    unsigned int ticks;
 
-    time = clock();
-    snprintf(ftime, sizeof(ftime), "(%010d)", time);
+    ticks = (unsigned int)clock();
+    snprintf(ftime, sizeof(ftime), "(%010u)", ticks);
     #endif
 
     #if ULOG_PRINT_TAG == 1
-    static char ftag[sizeof("[          ]")];
+    char ftag[sizeof("[          ]")];
     snprintf(ftag, sizeof(ftag), "[%10.10s]", tag);
+    #else
+    (void)tag;
     #endif
 
-    static va_list args;
-    static char fmsg[ULOG_MESSAGE_LEN];
+    va_list args;
+    char fmsg[ULOG_MESSAGE_LEN];
     va_start(args, msg);
     vsnprintf(fmsg, sizeof(fmsg), msg, args);
     va_end(args);
@@ -126,34 +129,31 @@ void ulog(unsigned char dest, unsigned char level, const char* tag, const char* 
     /* Log to stdout */
     if (dest & ulog_dest_available & ULOG_STDOUT)
     {
-        /* Print date time*/
-        printf("%s ", ftime);
-
-        #if ULOG_PRINT_TAG == 1
-        /* Print tag */
-        printf("%s ", ftag);
+        #if ULOG_PRINT_COLOR == 1 && ULOG_PRINT_LEVEL == 1 && ULOG_PRINT_TAG == 1
+        printf("%s %s %s%s %s%s" ULOG_ENDLINE,
+               ftime, ftag, ulog_level_color[level], ulog_level_str[level], fmsg,
+               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
+        #elif ULOG_PRINT_COLOR == 1 && ULOG_PRINT_LEVEL == 1
+        printf("%s %s%s %s%s" ULOG_ENDLINE,
+               ftime, ulog_level_color[level], ulog_level_str[level], fmsg,
+               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
+        #elif ULOG_PRINT_COLOR == 1 && ULOG_PRINT_TAG == 1
+        printf("%s %s %s%s%s" ULOG_ENDLINE,
+               ftime, ftag, ulog_level_color[level], fmsg,
+               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
+        #elif ULOG_PRINT_LEVEL == 1 && ULOG_PRINT_TAG == 1
+        printf("%s %s %s %s" ULOG_ENDLINE, ftime, ftag, ulog_level_str[level], fmsg);
+        #elif ULOG_PRINT_COLOR == 1
+        printf("%s %s%s%s" ULOG_ENDLINE,
+               ftime, ulog_level_color[level], fmsg,
+               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
+        #elif ULOG_PRINT_LEVEL == 1
+        printf("%s %s %s" ULOG_ENDLINE, ftime, ulog_level_str[level], fmsg);
+        #elif ULOG_PRINT_TAG == 1
+        printf("%s %s %s" ULOG_ENDLINE, ftime, ftag, fmsg);
+        #else
+        printf("%s %s" ULOG_ENDLINE, ftime, fmsg);
         #endif
-
-        #if ULOG_PRINT_COLOR == 1
-        /* Set message color */
-        printf("%s", ulog_level_color[level]);
-        #endif
-
-        #if ULOG_PRINT_LEVEL == 1
-        /* Print lelvel */
-        printf("%s ", ulog_level_str[level]);
-        #endif
-
-        /* Print message string */
-        printf("%s", fmsg);
-
-        #if ULOG_PRINT_COLOR == 1
-        /* Reset message color */
-        if (level != ULOG_INFO_LVL)
-            printf(ULOG_COLOR_RESET);
-        #endif
-
-        printf(ULOG_ENDLINE);
     }
 
     /* Log to file */
@@ -213,7 +213,7 @@ err:    fclose(fp);
 
         /* Check existance */
         rc = f_stat(ULOG_FILE_NAME, &fno);
-        if (rc == FR_OK && fno.fsize >= LOG_MAX_FILE_SIZE)
+        if (rc == FR_OK && fno.fsize >= ULOG_MAX_FILE_SIZE)
         {
             /* Check existance of a backup */
             rc = f_stat(ULOG_FILE_NAME".bak", &fno);
@@ -230,27 +230,33 @@ err:    fclose(fp);
         {
             /* Write date time*/
             rc = f_write(&f, ftime, sizeof(ftime) - 1, &bw);
-            if (rc) goto err;
+            if (rc != FR_OK) goto err;
+            rc = f_write(&f, " ", 1, &bw);
+            if (rc != FR_OK) goto err;
 
             #if ULOG_PRINT_TAG == 1
             /* Write tag */
             rc = f_write(&f, ftag, sizeof(ftag) - 1, &bw);
-            if (rc) goto err;
+            if (rc != FR_OK) goto err;
+            rc = f_write(&f, " ", 1, &bw);
+            if (rc != FR_OK) goto err;
             #endif
 
             #if ULOG_PRINT_LEVEL == 1
             /* Write level */
-            rc = f_write(&f, ulog_level_str[level], sizeof(ftag) - 1, &bw);
-            if (rc < 0) goto err;
+            rc = f_write(&f, ulog_level_str[level], strlen(ulog_level_str[level]), &bw);
+            if (rc != FR_OK) goto err;
+            rc = f_write(&f, " ", 1, &bw);
+            if (rc != FR_OK) goto err;
             #endif
 
             /* Write message string */
             rc = f_write(&f, fmsg, strlen(fmsg), &bw);
-            if (rc) goto err;
+            if (rc != FR_OK) goto err;
 
             /* Write endline character */
             rc = f_write(&f, ULOG_ENDLINE, sizeof(ULOG_ENDLINE) - 1, &bw);
-            if (rc) goto err;
+            if (rc != FR_OK) goto err;
 
 err:        f_close(&f);
         }
@@ -259,3 +265,5 @@ err:        f_close(&f);
     #endif /* ULOG_FILE_SYSTEM */
     ULOG_MUTEX_GIVE();
 }
+
+#endif /* ULOG_ENABLE */
