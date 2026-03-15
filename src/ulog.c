@@ -40,6 +40,7 @@ static const char* const ulog_level_str[] = \
 
 static volatile uint8_t ulog_dest_available = ULOG_NULL;
 static volatile uint8_t ulog_level = ULOG_DEBUG_LVL;
+static ulog_printf_t ulog_func = NULL;
 
 void ulog_init(uint8_t dest)
 {
@@ -66,6 +67,11 @@ void ulog_set_level(uint8_t level)
 uint8_t ulog_get_level(void)
 {
     return ulog_level;
+}
+
+void ulog_set_func(ulog_printf_t func)
+{
+    ulog_func = func;
 }
 
 /**
@@ -161,6 +167,20 @@ void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
         printf("%s %s %s" ULOG_ENDLINE, ftime, ftag, fmsg);
         #else
         printf("%s %s" ULOG_ENDLINE, ftime, fmsg);
+        #endif
+    }
+
+    /* Log to custom function */
+    if ((dest & ulog_dest_available & ULOG_FUNC) && ulog_func != NULL)
+    {
+        #if ULOG_PRINT_LEVEL == 1 && ULOG_PRINT_TAG == 1
+        ulog_func("%s %s %s %s" ULOG_ENDLINE, ftime, ftag, ulog_level_str[level], fmsg);
+        #elif ULOG_PRINT_LEVEL == 1
+        ulog_func("%s %s %s" ULOG_ENDLINE, ftime, ulog_level_str[level], fmsg);
+        #elif ULOG_PRINT_TAG == 1
+        ulog_func("%s %s %s" ULOG_ENDLINE, ftime, ftag, fmsg);
+        #else
+        ulog_func("%s %s" ULOG_ENDLINE, ftime, fmsg);
         #endif
     }
 
@@ -360,6 +380,20 @@ void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, c
         #endif
     }
 
+    /* Print description to custom function */
+    if ((dest & ulog_dest_available & ULOG_FUNC) && ulog_func != NULL)
+    {
+        #if ULOG_PRINT_LEVEL == 1 && ULOG_PRINT_TAG == 1
+        ulog_func("%s %s %s %s (%zu bytes)" ULOG_ENDLINE, ftime, ftag, ulog_level_str[level], desc, len);
+        #elif ULOG_PRINT_LEVEL == 1
+        ulog_func("%s %s %s (%zu bytes)" ULOG_ENDLINE, ftime, ulog_level_str[level], desc, len);
+        #elif ULOG_PRINT_TAG == 1
+        ulog_func("%s %s %s (%zu bytes)" ULOG_ENDLINE, ftime, ftag, desc, len);
+        #else
+        ulog_func("%s %s (%zu bytes)" ULOG_ENDLINE, ftime, desc, len);
+        #endif
+    }
+
     /* Dump binary data line by line */
     for (size_t offset = 0; offset < len; offset += ULOG_DUMP_BYTES_PER_LINE)
     {
@@ -397,6 +431,16 @@ void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, c
             printf("  %04zx: %s %s" ULOG_ENDLINE, offset, hex_buf, ascii_buf);
             #else
             printf("  %04zx: %s" ULOG_ENDLINE, offset, hex_buf);
+            #endif
+        }
+
+        /* Print to custom function */
+        if ((dest & ulog_dest_available & ULOG_FUNC) && ulog_func != NULL)
+        {
+            #if ULOG_DUMP_SHOW_ASCII == 1
+            ulog_func("  %04zx: %s %s" ULOG_ENDLINE, offset, hex_buf, ascii_buf);
+            #else
+            ulog_func("  %04zx: %s" ULOG_ENDLINE, offset, hex_buf);
             #endif
         }
 

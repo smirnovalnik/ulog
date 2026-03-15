@@ -17,11 +17,15 @@
 extern "C" {
 #endif
 
+/** Printf-like function pointer type for custom output */
+typedef int (*ulog_printf_t)(const char* fmt, ...);
+
 /** ulog destination */
 enum {
     ULOG_NULL    = 0x00,    /**< Log to null */
     ULOG_STDOUT  = 0x01,    /**< Log to stdout */
     ULOG_FS      = 0x02,    /**< Log to file system */
+    ULOG_FUNC    = 0x04,    /**< Log to custom function */
 };
 
 /** ulog level */
@@ -44,6 +48,8 @@ uint8_t ulog_get_dest(void);
 void ulog_set_level(uint8_t level);
 /** Get level */
 uint8_t ulog_get_level(void);
+/** Set custom output function */
+void ulog_set_func(ulog_printf_t func);
 
 /**
   * Log a message
@@ -63,18 +69,18 @@ void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...);
 void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, const void* data, size_t len);
 
 /** Short macros */
-#define ULOG_TRACE(tag, ...) ulog(ULOG_STDOUT | ULOG_FS, ULOG_TRACE_LVL, tag, __VA_ARGS__)
-#define ULOG_DEBUG(tag, ...) ulog(ULOG_STDOUT | ULOG_FS, ULOG_DEBUG_LVL, tag, __VA_ARGS__)
-#define ULOG_INFO(tag, ...)  ulog(ULOG_STDOUT | ULOG_FS, ULOG_INFO_LVL, tag, __VA_ARGS__)
-#define ULOG_WARN(tag, ...)  ulog(ULOG_STDOUT | ULOG_FS, ULOG_WARN_LVL, tag, __VA_ARGS__)
-#define ULOG_ERR(tag, ...)   ulog(ULOG_STDOUT | ULOG_FS, ULOG_ERR_LVL, tag, __VA_ARGS__)
+#define ULOG_TRACE(tag, ...) ulog(ULOG_STDOUT | ULOG_FS | ULOG_FUNC, ULOG_TRACE_LVL, tag, __VA_ARGS__)
+#define ULOG_DEBUG(tag, ...) ulog(ULOG_STDOUT | ULOG_FS | ULOG_FUNC, ULOG_DEBUG_LVL, tag, __VA_ARGS__)
+#define ULOG_INFO(tag, ...)  ulog(ULOG_STDOUT | ULOG_FS | ULOG_FUNC, ULOG_INFO_LVL, tag, __VA_ARGS__)
+#define ULOG_WARN(tag, ...)  ulog(ULOG_STDOUT | ULOG_FS | ULOG_FUNC, ULOG_WARN_LVL, tag, __VA_ARGS__)
+#define ULOG_ERR(tag, ...)   ulog(ULOG_STDOUT | ULOG_FS | ULOG_FUNC, ULOG_ERR_LVL, tag, __VA_ARGS__)
 
 /** Binary dump macros */
-#define ULOG_DUMP_TRACE(tag, desc, data, len) ulog_dump(ULOG_STDOUT | ULOG_FS, ULOG_TRACE_LVL, tag, desc, data, len)
-#define ULOG_DUMP_DEBUG(tag, desc, data, len) ulog_dump(ULOG_STDOUT | ULOG_FS, ULOG_DEBUG_LVL, tag, desc, data, len)
-#define ULOG_DUMP_INFO(tag, desc, data, len)  ulog_dump(ULOG_STDOUT | ULOG_FS, ULOG_INFO_LVL, tag, desc, data, len)
-#define ULOG_DUMP_WARN(tag, desc, data, len)  ulog_dump(ULOG_STDOUT | ULOG_FS, ULOG_WARN_LVL, tag, desc, data, len)
-#define ULOG_DUMP_ERR(tag, desc, data, len)   ulog_dump(ULOG_STDOUT | ULOG_FS, ULOG_ERR_LVL, tag, desc, data, len)
+#define ULOG_DUMP_TRACE(tag, desc, data, len) ulog_dump(ULOG_STDOUT | ULOG_FS | ULOG_FUNC, ULOG_TRACE_LVL, tag, desc, data, len)
+#define ULOG_DUMP_DEBUG(tag, desc, data, len) ulog_dump(ULOG_STDOUT | ULOG_FS | ULOG_FUNC, ULOG_DEBUG_LVL, tag, desc, data, len)
+#define ULOG_DUMP_INFO(tag, desc, data, len)  ulog_dump(ULOG_STDOUT | ULOG_FS | ULOG_FUNC, ULOG_INFO_LVL, tag, desc, data, len)
+#define ULOG_DUMP_WARN(tag, desc, data, len)  ulog_dump(ULOG_STDOUT | ULOG_FS | ULOG_FUNC, ULOG_WARN_LVL, tag, desc, data, len)
+#define ULOG_DUMP_ERR(tag, desc, data, len)   ulog_dump(ULOG_STDOUT | ULOG_FS | ULOG_FUNC, ULOG_ERR_LVL, tag, desc, data, len)
 
 #ifdef __cplusplus
 }
