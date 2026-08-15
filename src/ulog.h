@@ -13,6 +13,12 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "ulog_conf.h"
+
+#ifndef ULOG_ENABLE
+#define ULOG_ENABLE 1
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -37,6 +43,8 @@ enum {
     ULOG_WARN_LVL    = 0x04,    /**< warning */
     ULOG_ERR_LVL     = 0x05,    /**< error */
 };
+
+#if ULOG_ENABLE == 1
 
 /** Initialization */
 void ulog_init(uint8_t dest);
@@ -67,6 +75,31 @@ void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...);
   * @param  len Length of data in bytes
   */
 void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, const void* data, size_t len);
+
+#else /* ULOG_ENABLE == 0: no code, no RAM */
+
+/* Empty inline stubs instead of macros: the arguments stay referenced, so the
+   call sites keep no unused tags/variables, while the optimizer drops both the
+   calls and the format strings. */
+
+static inline void ulog_init(uint8_t dest) { (void)dest; }
+static inline void ulog_deinit(void) { }
+static inline uint8_t ulog_get_dest(void) { return ULOG_NULL; }
+static inline void ulog_set_level(uint8_t level) { (void)level; }
+static inline uint8_t ulog_get_level(void) { return ULOG_NONE_LVL; }
+static inline void ulog_set_func(ulog_printf_t func) { (void)func; }
+
+static inline void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
+{
+    (void)dest; (void)level; (void)tag; (void)msg;
+}
+
+static inline void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, const void* data, size_t len)
+{
+    (void)dest; (void)level; (void)tag; (void)desc; (void)data; (void)len;
+}
+
+#endif /* ULOG_ENABLE */
 
 /** Short macros */
 #define ULOG_TRACE(tag, ...) ulog(ULOG_STDOUT | ULOG_FS | ULOG_FUNC, ULOG_TRACE_LVL, tag, __VA_ARGS__)
