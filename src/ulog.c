@@ -87,18 +87,29 @@ void ulog_set_func(ulog_printf_t func)
 #define ULOG_HEAD_LEN sizeof("2000/01/01 06:03:22.000 [          ] " ULOG_COLOR_TRACE "TRACE ")
 
 /**
-  * @brief  Write the line head "time [tag] color level " to the buffer of ULOG_HEAD_LEN bytes
-  * @param  head_len Length of "time [tag] ", the part before the color
-  * @param  body Position after the color
-  * @return Position after the head
+  * @brief  ulog example: 2000/01/01 06:03:22.000 [  protect] Overcurrent
   */
-static char* ulog_head(char* line, uint8_t level, const char* tag, int* head_len, char** body)
+void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
 {
+    dest &= ulog_dest_available;
+    if (dest == ULOG_NULL)
+        return;
+
+    if (level < ulog_level || level > ULOG_ERR_LVL)
+        return;
+
+    if (tag == NULL || msg == NULL)
+        return;
+
+    ULOG_MUTEX_TAKE();
+
+    /* The whole line is built once: head, color, body (level and message), color reset, endline.
+       Stdout gets it as is, the custom function gets head and body without the color. */
+    char line[ULOG_HEAD_LEN + ULOG_MESSAGE_LEN + sizeof(ULOG_COLOR_RESET) + sizeof(ULOG_ENDLINE)];
     char* p = line;
-    size_t n;
 
     #if ULOG_TIMESTAMP == 1
-    /* Date and time are formatted once per second and kept between the calls, the callers hold the mutex */
+    /* Date and time are formatted once per second and kept between the calls under the mutex */
     static char ftime[sizeof("2000/01/01 06:03:22")];
     static size_t ftime_len = 0;
     static time_t ftime_sec;
@@ -118,97 +129,70 @@ static char* ulog_head(char* line, uint8_t level, const char* tag, int* head_len
         ftime_len = strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", localtime(&sec));
         ftime_sec = sec;
     }
-    n = ftime_len;
-    #else
-    char ftime[sizeof("(0123456789)")];
-    unsigned int ticks;
-
-    ticks = (unsigned int)clock();
-    snprintf(ftime, sizeof(ftime), "(%010u)", ticks);
-    n = strlen(ftime);
-    #endif
-
-    memcpy(p, ftime, n);
-    p += n;
-    #if ULOG_TIMESTAMP == 1 && ULOG_TIMESTAMP_MS == 1
+    memcpy(p, ftime, ftime_len);
+    p += ftime_len;
+    #if ULOG_TIMESTAMP_MS == 1
     unsigned int ms = (unsigned int)(rawtime.tv_nsec / 1000000) % 1000;
     *p++ = '.';
     *p++ = (char)('0' + ms / 100);
     *p++ = (char)('0' + ms / 10 % 10);
     *p++ = (char)('0' + ms % 10);
     #endif
+    #else
+    p += snprintf(p, sizeof("(0123456789)"), "(%010u)", (unsigned int)clock());
+    #endif
     *p++ = ' ';
 
     #if ULOG_PRINT_TAG == 1
     /* Tag is right-aligned in 10 characters, a longer one is cut */
-    n = 0;
-    while (n < 10 && tag[n] != '\0')
-        n++;
+    size_t tag_len = 0;
+    while (tag_len < 10 && tag[tag_len] != '\0')
+        tag_len++;
     *p++ = '[';
-    memset(p, ' ', 10 - n);
-    memcpy(p + 10 - n, tag, n);
+    memset(p, ' ', 10 - tag_len);
+    memcpy(p + 10 - tag_len, tag, tag_len);
     p += 10;
     *p++ = ']';
     *p++ = ' ';
     #else
     (void)tag;
     #endif
-    *head_len = (int)(p - line);
+    int head_len = (int)(p - line);
 
     #if ULOG_PRINT_COLOR == 1
-    n = strlen(ulog_level_color[level]);
-    memcpy(p, ulog_level_color[level], n);
-    p += n;
+    size_t color_len = strlen(ulog_level_color[level]);
+    memcpy(p, ulog_level_color[level], color_len);
+    p += color_len;
     #endif
-    *body = p;
+    char* body = p;
 
     #if ULOG_PRINT_LEVEL == 1
-    n = strlen(ulog_level_str[level]);
-    memcpy(p, ulog_level_str[level], n);
-    p += n;
+    size_t level_len = strlen(ulog_level_str[level]);
+    memcpy(p, ulog_level_str[level], level_len);
+    p += level_len;
     *p++ = ' ';
     #endif
-
-    return p;
-}
-
-/**
-  * @brief  ulog example: 2000/01/01 06:03:22.000 [  protect] Overcurrent
-  */
-void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
-{
-    if ((dest & ulog_dest_available) == ULOG_NULL)
-        return;
-
-    if (level < ulog_level || level > ULOG_ERR_LVL)
-        return;
-
-    if (tag == NULL || msg == NULL)
-        return;
-
-    ULOG_MUTEX_TAKE();
-
-    /* The whole line is built once: head, color, body (level and message), color reset, endline.
-       Stdout gets it as is, the custom function gets head and body without the color. */
-    char line[ULOG_HEAD_LEN + ULOG_MESSAGE_LEN + sizeof(ULOG_COLOR_RESET) + sizeof(ULOG_ENDLINE)];
-    int head_len;
-    char* body;
-    char* p = ulog_head(line, level, tag, &head_len, &body);
 
     va_list args;
     char* fmsg = p;
     va_start(args, msg);
-    vsnprintf(fmsg, ULOG_MESSAGE_LEN, msg, args);
+    int msg_len = vsnprintf(fmsg, ULOG_MESSAGE_LEN, msg, args);
     va_end(args);
+
+    /* A longer message is cut, a format error leaves it empty */
+    if (msg_len < 0)
+        msg_len = 0;
+    else if (msg_len >= ULOG_MESSAGE_LEN)
+        msg_len = ULOG_MESSAGE_LEN - 1;
 
     #if ULOG_REMOVE_SPACES == 1
     /* Delete unnecessary spaces from message: \n, \r, \t*/
-    for (char* ch_msg = fmsg; *ch_msg != '\0'; ch_msg++)
+    for (char* ch_msg = fmsg; ch_msg < fmsg + msg_len; ch_msg++)
         if (*ch_msg == '\n' || *ch_msg == '\r' || *ch_msg == '\t')
             *ch_msg = ' ';
     #endif
 
-    p += strlen(fmsg);
+    p += msg_len;
     int body_len = (int)(p - body);
 
     #if ULOG_PRINT_COLOR == 1
@@ -223,20 +207,20 @@ void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
     p += sizeof(ULOG_ENDLINE) - 1;
 
     /* Log to stdout */
-    if (dest & ulog_dest_available & ULOG_STDOUT)
+    if (dest & ULOG_STDOUT)
     {
         ULOG_STDOUT_WRITE(line, (size_t)(p - line));
     }
 
     /* Log to custom function */
-    if ((dest & ulog_dest_available & ULOG_FUNC) && ulog_func != NULL)
+    if ((dest & ULOG_FUNC) && ulog_func != NULL)
     {
         ulog_func("%.*s%.*s" ULOG_ENDLINE, head_len, line, body_len, body);
     }
 
     /* Log to file */
     #if ULOG_FILE_SYSTEM == 1
-    if (dest & ulog_dest_available & ULOG_FS)
+    if (dest & ULOG_FS)
     {
         /* The color is not written to the file: move the body over it */
         memmove(line + head_len, body, (size_t)body_len);
@@ -293,7 +277,8 @@ void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
   */
 void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, const void* data, size_t len)
 {
-    if ((dest & ulog_dest_available) == ULOG_NULL)
+    dest &= ulog_dest_available;
+    if (dest == ULOG_NULL)
         return;
 
     if (level < ulog_level || level > ULOG_ERR_LVL)
@@ -304,101 +289,51 @@ void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, c
 
     const uint8_t* bytes = (const uint8_t*)data;
 
+    /* Description line is a usual message, it takes the mutex itself */
+    ulog(dest, level, tag, "%s (%lu bytes)", desc, (unsigned long)len);
+
     ULOG_MUTEX_TAKE();
 
-    /* Description line: head and level from the buffer, description as is,
-       then the tail " (N bytes)" with color reset and endline */
-    char line[ULOG_HEAD_LEN];
-    int head_len;
-    char* body;
-    char* p = ulog_head(line, level, tag, &head_len, &body);
-    int level_len = (int)(p - body);
-
-    char tail[sizeof(" (18446744073709551615 bytes)") + sizeof(ULOG_COLOR_RESET) + sizeof(ULOG_ENDLINE)];
-    int bytes_len = snprintf(tail, sizeof(tail), " (%lu bytes)", (unsigned long)len);
-    char* t = tail + bytes_len;
-
-    #if ULOG_PRINT_COLOR == 1
-    if (level != ULOG_INFO_LVL)
-    {
-        memcpy(t, ULOG_COLOR_RESET, sizeof(ULOG_COLOR_RESET) - 1);
-        t += sizeof(ULOG_COLOR_RESET) - 1;
-    }
-    #endif
-
-    memcpy(t, ULOG_ENDLINE, sizeof(ULOG_ENDLINE) - 1);
-    t += sizeof(ULOG_ENDLINE) - 1;
-
-    /* Print description line */
-    if (dest & ulog_dest_available & ULOG_STDOUT)
-    {
-        ULOG_STDOUT_WRITE(line, (size_t)(p - line));
-        ULOG_STDOUT_WRITE(desc, strlen(desc));
-        ULOG_STDOUT_WRITE(tail, (size_t)(t - tail));
-    }
-
-    /* Print description to custom function */
-    if ((dest & ulog_dest_available & ULOG_FUNC) && ulog_func != NULL)
-    {
-        ulog_func("%.*s%.*s%s%.*s" ULOG_ENDLINE, head_len, line, level_len, body, desc, bytes_len, tail);
-    }
-
-    /* Print description to file, it stays open for the whole dump */
+    /* The file stays open for the whole dump */
     #if ULOG_FILE_SYSTEM == 1
     #if ULOG_USE_POSIX_IO == 1
     FILE *fp = NULL;
 
-    if (dest & ulog_dest_available & ULOG_FS)
+    if (dest & ULOG_FS)
         fp = fopen(ULOG_FILE_NAME, "a");
-
-    if (fp != NULL)
-    {
-        fprintf(fp, "%.*s%.*s%s%.*s" ULOG_ENDLINE, head_len, line, level_len, body, desc, bytes_len, tail);
-    }
     #else
     FIL f;
     UINT bw;
-    int f_opened = (dest & ulog_dest_available & ULOG_FS) &&
+    int f_opened = (dest & ULOG_FS) &&
                    f_open(&f, ULOG_FILE_NAME, FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_APPEND) == FR_OK;
-
-    if (f_opened)
-    {
-        f_write(&f, line, (UINT)head_len, &bw);
-        f_write(&f, body, (UINT)level_len, &bw);
-        f_write(&f, desc, strlen(desc), &bw);
-        f_write(&f, tail, (UINT)bytes_len, &bw);
-        f_write(&f, ULOG_ENDLINE, sizeof(ULOG_ENDLINE) - 1, &bw);
-    }
     #endif /* ULOG_USE_POSIX_IO */
     #endif /* ULOG_FILE_SYSTEM */
 
     /* Dump binary data line by line */
     for (size_t offset = 0; offset < len; offset += ULOG_DUMP_BYTES_PER_LINE)
     {
-        /* The whole line in one buffer: "  offset: hex bytes [ascii]" */
+        /* The whole line in one buffer: "  offset: hex bytes [ascii]", the gaps are left as spaces */
         char dline[sizeof("  : ") + 2 * sizeof(size_t) + ULOG_DUMP_BYTES_PER_LINE * 3 + 1 +
                    ULOG_DUMP_BYTES_PER_LINE + sizeof(ULOG_ENDLINE)];
-        char* d = dline;
+        char* d = dline + 2;
         size_t line_len = (len - offset < ULOG_DUMP_BYTES_PER_LINE) ? (len - offset) : ULOG_DUMP_BYTES_PER_LINE;
+
+        memset(dline, ' ', sizeof(dline));
 
         /* Format offset: 4 hex digits at least */
         unsigned int digits = 4;
         while (digits < 2 * sizeof(size_t) && (offset >> (4 * digits)) != 0)
             digits++;
 
-        *d++ = ' ';
-        *d++ = ' ';
         while (digits-- > 0)
             *d++ = ulog_hex[(offset >> (4 * digits)) & 0x0f];
-        *d++ = ':';
-        *d++ = ' ';
+        *d = ':';
 
-        char* hex_buf = d;
-        d += ULOG_DUMP_BYTES_PER_LINE * 3;
+        char* hex_buf = d + 2;
+        d = hex_buf + ULOG_DUMP_BYTES_PER_LINE * 3;
         #if ULOG_DUMP_SHOW_ASCII == 1
-        *d++ = ' ';
-        char* ascii_buf = d;
-        d += ULOG_DUMP_BYTES_PER_LINE;
+        char* ascii_buf = d + 1;
+        d = ascii_buf + ULOG_DUMP_BYTES_PER_LINE;
         #endif
 
         /* Format hex bytes */
@@ -406,18 +341,8 @@ void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, c
         {
             hex_buf[i * 3] = ulog_hex[bytes[offset + i] >> 4];
             hex_buf[i * 3 + 1] = ulog_hex[bytes[offset + i] & 0x0f];
-            hex_buf[i * 3 + 2] = ' ';
             #if ULOG_DUMP_SHOW_ASCII == 1
             ascii_buf[i] = (bytes[offset + i] >= 32 && bytes[offset + i] <= 126) ? bytes[offset + i] : '.';
-            #endif
-        }
-
-        /* Pad if line is not full */
-        for (size_t i = line_len; i < ULOG_DUMP_BYTES_PER_LINE; i++)
-        {
-            memcpy(hex_buf + i * 3, "   ", 3);
-            #if ULOG_DUMP_SHOW_ASCII == 1
-            ascii_buf[i] = ' ';
             #endif
         }
 
@@ -425,13 +350,13 @@ void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, c
         d += sizeof(ULOG_ENDLINE) - 1;
 
         /* Print to stdout */
-        if (dest & ulog_dest_available & ULOG_STDOUT)
+        if (dest & ULOG_STDOUT)
         {
             ULOG_STDOUT_WRITE(dline, (size_t)(d - dline));
         }
 
         /* Print to custom function */
-        if ((dest & ulog_dest_available & ULOG_FUNC) && ulog_func != NULL)
+        if ((dest & ULOG_FUNC) && ulog_func != NULL)
         {
             ulog_func("%s", dline);
         }
