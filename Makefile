@@ -26,6 +26,10 @@ test: $(BUILD_DIR)
 	$(CC) $(C_FLAGS) $(C_SOURCES) $(C_INCLUDES) $(LIBS) -o $(BUILD_DIR)/tests
 	./$(BUILD_DIR)/tests
 
+bench: $(BUILD_DIR)
+	$(CC) $(C_FLAGS) -O2 src/ulog.c tests/bench.c $(C_INCLUDES) $(LIBS) -o $(BUILD_DIR)/bench
+	./$(BUILD_DIR)/bench
+
 $(BUILD_DIR):
 	-mkdir $@
 

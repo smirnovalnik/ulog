@@ -38,6 +38,10 @@
 #define ULOG_USE_POSIX_MUTEX    1     // 1 = POSIX pthread, 0 = FreeRTOS semaphore
 #define ULOG_USE_POSIX_IO       1     // 1 = POSIX file I/O, 0 = FatFs
 
+// Block output of a complete line to stdout (default: fwrite to stdout)
+// A port can bypass stdio here, e.g. _write(1, buf, len) with newlib
+// #define ULOG_STDOUT_WRITE(buf, len) fwrite(buf, 1, len, stdout)
+
 // Mutex configuration
 #if ULOG_USE_MUTEX == 1
     #if ULOG_USE_POSIX_MUTEX == 1

@@ -123,6 +123,7 @@ Copy `templates/ulog_conf.h` to your project and customize the settings:
 
 ```bash
 make        # Build and run tests
+make bench  # Build and run benchmark (ns per call, bytes per call)
 make clean  # Clean build directory
 ```
 

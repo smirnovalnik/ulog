@@ -29,6 +29,11 @@
 #define ULOG_COLOR_TRACE     "\x1b[36m"
 #define ULOG_COLOR_RESET     "\x1b[0m"
 
+/* Block output to stdout, a port can override it in ulog_conf.h to bypass stdio */
+#ifndef ULOG_STDOUT_WRITE
+#define ULOG_STDOUT_WRITE(buf, len) fwrite(buf, 1, len, stdout)
+#endif
+
 static const char* const ulog_level_color[] = \
     {ULOG_COLOR_RESET, ULOG_COLOR_TRACE, ULOG_COLOR_DEBUG, ULOG_COLOR_RESET, ULOG_COLOR_WARN, ULOG_COLOR_ERR};
 
@@ -39,6 +44,8 @@ static const char* const ulog_level_str[] = \
 static const char* const ulog_level_str[] = \
     {"", "TRACE", "DEBUG", " INFO", " WARN", "  ERR"};
 #endif
+
+static const char ulog_hex[] = "0123456789abcdef";
 
 static volatile uint8_t ulog_dest_available = ULOG_NULL;
 static volatile uint8_t ulog_level = ULOG_DEBUG_LVL;
@@ -76,21 +83,19 @@ void ulog_set_func(ulog_printf_t func)
     ulog_func = func;
 }
 
+/* Maximum length of the line head: time, tag, color and level */
+#define ULOG_HEAD_LEN sizeof("2000/01/01 06:03:22.000 [          ] " ULOG_COLOR_TRACE "TRACE ")
+
 /**
-  * @brief  ulog example: 2000/01/01 06:03:22.000 [  protect] Overcurrent
+  * @brief  Write the line head "time [tag] color level " to the buffer of ULOG_HEAD_LEN bytes
+  * @param  head_len Length of "time [tag] ", the part before the color
+  * @param  body Position after the color
+  * @return Position after the head
   */
-void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
+static char* ulog_head(char* line, uint8_t level, const char* tag, int* head_len, char** body)
 {
-    if ((dest & ulog_dest_available) == ULOG_NULL)
-        return;
-
-    if (level < ulog_level || level > ULOG_ERR_LVL)
-        return;
-
-    if (tag == NULL || msg == NULL)
-        return;
-
-    ULOG_MUTEX_TAKE();
+    char* p = line;
+    size_t n;
 
     #if ULOG_TIMESTAMP == 1
     struct tm* timeinfo;
@@ -122,17 +127,71 @@ void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
     snprintf(ftime, sizeof(ftime), "(%010u)", ticks);
     #endif
 
+    n = strlen(ftime);
+    memcpy(p, ftime, n);
+    p += n;
+    *p++ = ' ';
+
     #if ULOG_PRINT_TAG == 1
-    char ftag[sizeof("[          ]")];
-    snprintf(ftag, sizeof(ftag), "[%10.10s]", tag);
+    /* Tag is right-aligned in 10 characters, a longer one is cut */
+    n = 0;
+    while (n < 10 && tag[n] != '\0')
+        n++;
+    *p++ = '[';
+    memset(p, ' ', 10 - n);
+    memcpy(p + 10 - n, tag, n);
+    p += 10;
+    *p++ = ']';
+    *p++ = ' ';
     #else
     (void)tag;
     #endif
+    *head_len = (int)(p - line);
+
+    #if ULOG_PRINT_COLOR == 1
+    n = strlen(ulog_level_color[level]);
+    memcpy(p, ulog_level_color[level], n);
+    p += n;
+    #endif
+    *body = p;
+
+    #if ULOG_PRINT_LEVEL == 1
+    n = strlen(ulog_level_str[level]);
+    memcpy(p, ulog_level_str[level], n);
+    p += n;
+    *p++ = ' ';
+    #endif
+
+    return p;
+}
+
+/**
+  * @brief  ulog example: 2000/01/01 06:03:22.000 [  protect] Overcurrent
+  */
+void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
+{
+    if ((dest & ulog_dest_available) == ULOG_NULL)
+        return;
+
+    if (level < ulog_level || level > ULOG_ERR_LVL)
+        return;
+
+    if (tag == NULL || msg == NULL)
+        return;
+
+    ULOG_MUTEX_TAKE();
+
+    /* The whole line is built once: head, color, body (level and message), color reset, endline.
+       Stdout gets it as is, the custom function gets head and body without the color. */
+    char line[ULOG_HEAD_LEN + ULOG_MESSAGE_LEN + sizeof(ULOG_COLOR_RESET) + sizeof(ULOG_ENDLINE)];
+    int head_len;
+    char* body;
+    char* p = ulog_head(line, level, tag, &head_len, &body);
 
     va_list args;
-    char fmsg[ULOG_MESSAGE_LEN];
+    char* fmsg = p;
     va_start(args, msg);
-    vsnprintf(fmsg, sizeof(fmsg), msg, args);
+    vsnprintf(fmsg, ULOG_MESSAGE_LEN, msg, args);
     va_end(args);
 
     #if ULOG_REMOVE_SPACES == 1
@@ -142,153 +201,79 @@ void ulog(uint8_t dest, uint8_t level, const char* tag, const char* msg, ...)
             *ch_msg = ' ';
     #endif
 
+    p += strlen(fmsg);
+    int body_len = (int)(p - body);
+
+    #if ULOG_PRINT_COLOR == 1
+    if (level != ULOG_INFO_LVL)
+    {
+        memcpy(p, ULOG_COLOR_RESET, sizeof(ULOG_COLOR_RESET) - 1);
+        p += sizeof(ULOG_COLOR_RESET) - 1;
+    }
+    #endif
+
+    memcpy(p, ULOG_ENDLINE, sizeof(ULOG_ENDLINE) - 1);
+    p += sizeof(ULOG_ENDLINE) - 1;
+
     /* Log to stdout */
     if (dest & ulog_dest_available & ULOG_STDOUT)
     {
-        #if ULOG_PRINT_COLOR == 1 && ULOG_PRINT_LEVEL == 1 && ULOG_PRINT_TAG == 1
-        printf("%s %s %s%s %s%s" ULOG_ENDLINE,
-               ftime, ftag, ulog_level_color[level], ulog_level_str[level], fmsg,
-               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
-        #elif ULOG_PRINT_COLOR == 1 && ULOG_PRINT_LEVEL == 1
-        printf("%s %s%s %s%s" ULOG_ENDLINE,
-               ftime, ulog_level_color[level], ulog_level_str[level], fmsg,
-               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
-        #elif ULOG_PRINT_COLOR == 1 && ULOG_PRINT_TAG == 1
-        printf("%s %s %s%s%s" ULOG_ENDLINE,
-               ftime, ftag, ulog_level_color[level], fmsg,
-               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
-        #elif ULOG_PRINT_LEVEL == 1 && ULOG_PRINT_TAG == 1
-        printf("%s %s %s %s" ULOG_ENDLINE, ftime, ftag, ulog_level_str[level], fmsg);
-        #elif ULOG_PRINT_COLOR == 1
-        printf("%s %s%s%s" ULOG_ENDLINE,
-               ftime, ulog_level_color[level], fmsg,
-               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
-        #elif ULOG_PRINT_LEVEL == 1
-        printf("%s %s %s" ULOG_ENDLINE, ftime, ulog_level_str[level], fmsg);
-        #elif ULOG_PRINT_TAG == 1
-        printf("%s %s %s" ULOG_ENDLINE, ftime, ftag, fmsg);
-        #else
-        printf("%s %s" ULOG_ENDLINE, ftime, fmsg);
-        #endif
+        ULOG_STDOUT_WRITE(line, (size_t)(p - line));
     }
 
     /* Log to custom function */
     if ((dest & ulog_dest_available & ULOG_FUNC) && ulog_func != NULL)
     {
-        #if ULOG_PRINT_LEVEL == 1 && ULOG_PRINT_TAG == 1
-        ulog_func("%s %s %s %s" ULOG_ENDLINE, ftime, ftag, ulog_level_str[level], fmsg);
-        #elif ULOG_PRINT_LEVEL == 1
-        ulog_func("%s %s %s" ULOG_ENDLINE, ftime, ulog_level_str[level], fmsg);
-        #elif ULOG_PRINT_TAG == 1
-        ulog_func("%s %s %s" ULOG_ENDLINE, ftime, ftag, fmsg);
-        #else
-        ulog_func("%s %s" ULOG_ENDLINE, ftime, fmsg);
-        #endif
+        ulog_func("%.*s%.*s" ULOG_ENDLINE, head_len, line, body_len, body);
     }
 
     /* Log to file */
     #if ULOG_FILE_SYSTEM == 1
     if (dest & ulog_dest_available & ULOG_FS)
     {
-        #if ULOG_USE_POSIX_IO == 1
-        int rc = -1;
-        FILE *fp;
+        /* The color is not written to the file: move the body over it */
+        memmove(line + head_len, body, (size_t)body_len);
+        p = line + head_len + body_len;
+        memcpy(p, ULOG_ENDLINE, sizeof(ULOG_ENDLINE) - 1);
+        p += sizeof(ULOG_ENDLINE) - 1;
 
-        /* Check existance */
-        if ((fp = fopen(ULOG_FILE_NAME, "r")) != NULL)
+        #if ULOG_USE_POSIX_IO == 1
+        FILE *fp = fopen(ULOG_FILE_NAME, "a");
+
+        /* Rotate the full file */
+        if (fp != NULL && fseek(fp, 0, SEEK_END) == 0 && ftell(fp) >= ULOG_MAX_FILE_SIZE)
         {
-            rc = fseek(fp, 0, SEEK_END);
-            long size = ftell(fp);
-            if (rc != -1 && size != -1 && size >= ULOG_MAX_FILE_SIZE)
-            {
-                remove(ULOG_FILE_NAME".bak");
-                rename(ULOG_FILE_NAME, ULOG_FILE_NAME".bak");
-            }
             fclose(fp);
+            remove(ULOG_FILE_NAME".bak");
+            rename(ULOG_FILE_NAME, ULOG_FILE_NAME".bak");
+            fp = fopen(ULOG_FILE_NAME, "a");
         }
 
-        if ((fp = fopen(ULOG_FILE_NAME, "a")) != NULL)
+        if (fp != NULL)
         {
-            /* Write date time*/
-            rc = fprintf(fp, "%s ", ftime);
-            if (rc < 0) goto err;
-
-            #if ULOG_PRINT_TAG == 1
-            /* Write tag */
-            rc = fprintf(fp, "%s ", ftag);
-            if (rc < 0) goto err;
-            #endif
-
-            #if ULOG_PRINT_LEVEL == 1
-            /* Write level */
-            rc = fprintf(fp, "%s ", ulog_level_str[level]);
-            if (rc < 0) goto err;
-            #endif
-
-            /* Write message string */
-            rc = fprintf(fp, "%s", fmsg);
-            if (rc < 0) goto err;
-
-            /* Write endline character */
-            rc = fprintf(fp, "%s", ULOG_ENDLINE);
-            if (rc < 0) goto err;
-
-err:        fclose(fp);
+            fwrite(line, 1, (size_t)(p - line), fp);
+            fclose(fp);
         }
         #else
         FIL f;
         FRESULT rc;
-        FILINFO fno;
         UINT bw;
 
-        /* Check existance */
-        rc = f_stat(ULOG_FILE_NAME, &fno);
-        if (rc == FR_OK && fno.fsize >= ULOG_MAX_FILE_SIZE)
-        {
-            /* Check existance of a backup */
-            rc = f_stat(ULOG_FILE_NAME".bak", &fno);
-            if (rc == FR_OK)
-            {
-                f_unlink(ULOG_FILE_NAME".bak");
-            }
+        rc = f_open(&f, ULOG_FILE_NAME, FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_APPEND);
 
+        /* Rotate the full file */
+        if (rc == FR_OK && f_size(&f) >= ULOG_MAX_FILE_SIZE)
+        {
+            f_close(&f);
+            f_unlink(ULOG_FILE_NAME".bak");
             f_rename(ULOG_FILE_NAME, ULOG_FILE_NAME".bak");
+            rc = f_open(&f, ULOG_FILE_NAME, FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_APPEND);
         }
 
-        rc = f_open(&f, ULOG_FILE_NAME, FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_APPEND);
         if (rc == FR_OK)
         {
-            /* Write date time*/
-            rc = f_write(&f, ftime, sizeof(ftime) - 1, &bw);
-            if (rc != FR_OK) goto err;
-            rc = f_write(&f, " ", 1, &bw);
-            if (rc != FR_OK) goto err;
-
-            #if ULOG_PRINT_TAG == 1
-            /* Write tag */
-            rc = f_write(&f, ftag, sizeof(ftag) - 1, &bw);
-            if (rc != FR_OK) goto err;
-            rc = f_write(&f, " ", 1, &bw);
-            if (rc != FR_OK) goto err;
-            #endif
-
-            #if ULOG_PRINT_LEVEL == 1
-            /* Write level */
-            rc = f_write(&f, ulog_level_str[level], strlen(ulog_level_str[level]), &bw);
-            if (rc != FR_OK) goto err;
-            rc = f_write(&f, " ", 1, &bw);
-            if (rc != FR_OK) goto err;
-            #endif
-
-            /* Write message string */
-            rc = f_write(&f, fmsg, strlen(fmsg), &bw);
-            if (rc != FR_OK) goto err;
-
-            /* Write endline character */
-            rc = f_write(&f, ULOG_ENDLINE, sizeof(ULOG_ENDLINE) - 1, &bw);
-            if (rc != FR_OK) goto err;
-
-err:        f_close(&f);
+            f_write(&f, line, (UINT)(p - line), &bw);
+            f_close(&f);
         }
         #endif /* ULOG_USE_POSIX_IO */
     }
@@ -314,99 +299,107 @@ void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, c
 
     ULOG_MUTEX_TAKE();
 
-    /* Print header with description */
-    #if ULOG_TIMESTAMP == 1
-    struct tm* timeinfo;
-    #if ULOG_TIMESTAMP_MS == 1
-    char ftime[sizeof("2000/01/01 06:03:22.000")];
-    struct timespec rawtime;
+    /* Description line: head and level from the buffer, description as is,
+       then the tail " (N bytes)" with color reset and endline */
+    char line[ULOG_HEAD_LEN];
+    int head_len;
+    char* body;
+    char* p = ulog_head(line, level, tag, &head_len, &body);
+    int level_len = (int)(p - body);
 
-    clock_gettime(CLOCK_REALTIME, &rawtime);
-    timeinfo = localtime(&rawtime.tv_sec);
-    int ms = (int)(rawtime.tv_nsec / 1000000);
-    int len_t = (int)strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", timeinfo);
-    if (len_t > 0 && (size_t)len_t < sizeof(ftime))
+    char tail[sizeof(" (18446744073709551615 bytes)") + sizeof(ULOG_COLOR_RESET) + sizeof(ULOG_ENDLINE)];
+    int bytes_len = snprintf(tail, sizeof(tail), " (%lu bytes)", (unsigned long)len);
+    char* t = tail + bytes_len;
+
+    #if ULOG_PRINT_COLOR == 1
+    if (level != ULOG_INFO_LVL)
     {
-        snprintf(ftime + len_t, sizeof(ftime) - (size_t)len_t, ".%03d", ms);
+        memcpy(t, ULOG_COLOR_RESET, sizeof(ULOG_COLOR_RESET) - 1);
+        t += sizeof(ULOG_COLOR_RESET) - 1;
     }
-    #else
-    char ftime[sizeof("2000/01/01 06:03:22")];
-    time_t rawtime;
-
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
-    strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", timeinfo);
-    #endif
-    #else
-    char ftime[sizeof("(0123456789)")];
-    unsigned int ticks;
-
-    ticks = (unsigned int)clock();
-    snprintf(ftime, sizeof(ftime), "(%010u)", ticks);
     #endif
 
-    #if ULOG_PRINT_TAG == 1
-    char ftag[sizeof("[          ]")];
-    snprintf(ftag, sizeof(ftag), "[%10.10s]", tag);
-    #else
-    (void)tag;
-    #endif
+    memcpy(t, ULOG_ENDLINE, sizeof(ULOG_ENDLINE) - 1);
+    t += sizeof(ULOG_ENDLINE) - 1;
 
     /* Print description line */
     if (dest & ulog_dest_available & ULOG_STDOUT)
     {
-        #if ULOG_PRINT_COLOR == 1 && ULOG_PRINT_LEVEL == 1 && ULOG_PRINT_TAG == 1
-        printf("%s %s %s%s %s (%zu bytes)%s" ULOG_ENDLINE,
-               ftime, ftag, ulog_level_color[level], ulog_level_str[level], desc, len,
-               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
-        #elif ULOG_PRINT_COLOR == 1 && ULOG_PRINT_LEVEL == 1
-        printf("%s %s%s %s (%zu bytes)%s" ULOG_ENDLINE,
-               ftime, ulog_level_color[level], ulog_level_str[level], desc, len,
-               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
-        #elif ULOG_PRINT_COLOR == 1 && ULOG_PRINT_TAG == 1
-        printf("%s %s %s%s (%zu bytes)%s" ULOG_ENDLINE,
-               ftime, ftag, ulog_level_color[level], desc, len,
-               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
-        #elif ULOG_PRINT_LEVEL == 1 && ULOG_PRINT_TAG == 1
-        printf("%s %s %s %s (%zu bytes)" ULOG_ENDLINE, ftime, ftag, ulog_level_str[level], desc, len);
-        #elif ULOG_PRINT_COLOR == 1
-        printf("%s %s%s (%zu bytes)%s" ULOG_ENDLINE,
-               ftime, ulog_level_color[level], desc, len,
-               (level != ULOG_INFO_LVL) ? ULOG_COLOR_RESET : "");
-        #elif ULOG_PRINT_LEVEL == 1
-        printf("%s %s %s (%zu bytes)" ULOG_ENDLINE, ftime, ulog_level_str[level], desc, len);
-        #elif ULOG_PRINT_TAG == 1
-        printf("%s %s %s (%zu bytes)" ULOG_ENDLINE, ftime, ftag, desc, len);
-        #else
-        printf("%s %s (%zu bytes)" ULOG_ENDLINE, ftime, desc, len);
-        #endif
+        ULOG_STDOUT_WRITE(line, (size_t)(p - line));
+        ULOG_STDOUT_WRITE(desc, strlen(desc));
+        ULOG_STDOUT_WRITE(tail, (size_t)(t - tail));
     }
 
     /* Print description to custom function */
     if ((dest & ulog_dest_available & ULOG_FUNC) && ulog_func != NULL)
     {
-        #if ULOG_PRINT_LEVEL == 1 && ULOG_PRINT_TAG == 1
-        ulog_func("%s %s %s %s (%zu bytes)" ULOG_ENDLINE, ftime, ftag, ulog_level_str[level], desc, len);
-        #elif ULOG_PRINT_LEVEL == 1
-        ulog_func("%s %s %s (%zu bytes)" ULOG_ENDLINE, ftime, ulog_level_str[level], desc, len);
-        #elif ULOG_PRINT_TAG == 1
-        ulog_func("%s %s %s (%zu bytes)" ULOG_ENDLINE, ftime, ftag, desc, len);
-        #else
-        ulog_func("%s %s (%zu bytes)" ULOG_ENDLINE, ftime, desc, len);
-        #endif
+        ulog_func("%.*s%.*s%s%.*s" ULOG_ENDLINE, head_len, line, level_len, body, desc, bytes_len, tail);
     }
+
+    /* Print description to file, it stays open for the whole dump */
+    #if ULOG_FILE_SYSTEM == 1
+    #if ULOG_USE_POSIX_IO == 1
+    FILE *fp = NULL;
+
+    if (dest & ulog_dest_available & ULOG_FS)
+        fp = fopen(ULOG_FILE_NAME, "a");
+
+    if (fp != NULL)
+    {
+        fprintf(fp, "%.*s%.*s%s%.*s" ULOG_ENDLINE, head_len, line, level_len, body, desc, bytes_len, tail);
+    }
+    #else
+    FIL f;
+    UINT bw;
+    int f_opened = (dest & ulog_dest_available & ULOG_FS) &&
+                   f_open(&f, ULOG_FILE_NAME, FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_APPEND) == FR_OK;
+
+    if (f_opened)
+    {
+        f_write(&f, line, (UINT)head_len, &bw);
+        f_write(&f, body, (UINT)level_len, &bw);
+        f_write(&f, desc, strlen(desc), &bw);
+        f_write(&f, tail, (UINT)bytes_len, &bw);
+        f_write(&f, ULOG_ENDLINE, sizeof(ULOG_ENDLINE) - 1, &bw);
+    }
+    #endif /* ULOG_USE_POSIX_IO */
+    #endif /* ULOG_FILE_SYSTEM */
 
     /* Dump binary data line by line */
     for (size_t offset = 0; offset < len; offset += ULOG_DUMP_BYTES_PER_LINE)
     {
-        char hex_buf[ULOG_DUMP_BYTES_PER_LINE * 3 + 1];
-        char ascii_buf[ULOG_DUMP_BYTES_PER_LINE + 1];
+        /* The whole line in one buffer: "  offset: hex bytes [ascii]" */
+        char dline[sizeof("  : ") + 2 * sizeof(size_t) + ULOG_DUMP_BYTES_PER_LINE * 3 + 1 +
+                   ULOG_DUMP_BYTES_PER_LINE + sizeof(ULOG_ENDLINE)];
+        char* d = dline;
         size_t line_len = (len - offset < ULOG_DUMP_BYTES_PER_LINE) ? (len - offset) : ULOG_DUMP_BYTES_PER_LINE;
+
+        /* Format offset: 4 hex digits at least */
+        unsigned int digits = 4;
+        while (digits < 2 * sizeof(size_t) && (offset >> (4 * digits)) != 0)
+            digits++;
+
+        *d++ = ' ';
+        *d++ = ' ';
+        while (digits-- > 0)
+            *d++ = ulog_hex[(offset >> (4 * digits)) & 0x0f];
+        *d++ = ':';
+        *d++ = ' ';
+
+        char* hex_buf = d;
+        d += ULOG_DUMP_BYTES_PER_LINE * 3;
+        #if ULOG_DUMP_SHOW_ASCII == 1
+        *d++ = ' ';
+        char* ascii_buf = d;
+        d += ULOG_DUMP_BYTES_PER_LINE;
+        #endif
 
         /* Format hex bytes */
         for (size_t i = 0; i < line_len; i++)
         {
-            snprintf(hex_buf + i * 3, 4, "%02x ", bytes[offset + i]);
+            hex_buf[i * 3] = ulog_hex[bytes[offset + i] >> 4];
+            hex_buf[i * 3 + 1] = ulog_hex[bytes[offset + i] & 0x0f];
+            hex_buf[i * 3 + 2] = ' ';
             #if ULOG_DUMP_SHOW_ASCII == 1
             ascii_buf[i] = (bytes[offset + i] >= 32 && bytes[offset + i] <= 126) ? bytes[offset + i] : '.';
             #endif
@@ -415,99 +408,56 @@ void ulog_dump(uint8_t dest, uint8_t level, const char* tag, const char* desc, c
         /* Pad if line is not full */
         for (size_t i = line_len; i < ULOG_DUMP_BYTES_PER_LINE; i++)
         {
-            snprintf(hex_buf + i * 3, 4, "   ");
+            memcpy(hex_buf + i * 3, "   ", 3);
             #if ULOG_DUMP_SHOW_ASCII == 1
             ascii_buf[i] = ' ';
             #endif
         }
 
-        hex_buf[ULOG_DUMP_BYTES_PER_LINE * 3] = '\0';
-        #if ULOG_DUMP_SHOW_ASCII == 1
-        ascii_buf[ULOG_DUMP_BYTES_PER_LINE] = '\0';
-        #endif
+        memcpy(d, ULOG_ENDLINE, sizeof(ULOG_ENDLINE));
+        d += sizeof(ULOG_ENDLINE) - 1;
 
         /* Print to stdout */
         if (dest & ulog_dest_available & ULOG_STDOUT)
         {
-            #if ULOG_DUMP_SHOW_ASCII == 1
-            printf("  %04zx: %s %s" ULOG_ENDLINE, offset, hex_buf, ascii_buf);
-            #else
-            printf("  %04zx: %s" ULOG_ENDLINE, offset, hex_buf);
-            #endif
+            ULOG_STDOUT_WRITE(dline, (size_t)(d - dline));
         }
 
         /* Print to custom function */
         if ((dest & ulog_dest_available & ULOG_FUNC) && ulog_func != NULL)
         {
-            #if ULOG_DUMP_SHOW_ASCII == 1
-            ulog_func("  %04zx: %s %s" ULOG_ENDLINE, offset, hex_buf, ascii_buf);
-            #else
-            ulog_func("  %04zx: %s" ULOG_ENDLINE, offset, hex_buf);
-            #endif
+            ulog_func("%s", dline);
         }
 
         /* Log to file */
         #if ULOG_FILE_SYSTEM == 1
-        if (dest & ulog_dest_available & ULOG_FS)
+        #if ULOG_USE_POSIX_IO == 1
+        if (fp != NULL)
         {
-            #if ULOG_USE_POSIX_IO == 1
-            FILE *fp;
-            if ((fp = fopen(ULOG_FILE_NAME, "a")) != NULL)
-            {
-                if (offset == 0)
-                {
-                    fprintf(fp, "%s ", ftime);
-                    #if ULOG_PRINT_TAG == 1
-                    fprintf(fp, "%s ", ftag);
-                    #endif
-                    #if ULOG_PRINT_LEVEL == 1
-                    fprintf(fp, "%s ", ulog_level_str[level]);
-                    #endif
-                    fprintf(fp, "%s (%zu bytes)%s", desc, len, ULOG_ENDLINE);
-                }
-                #if ULOG_DUMP_SHOW_ASCII == 1
-                fprintf(fp, "  %04zx: %s %s%s", offset, hex_buf, ascii_buf, ULOG_ENDLINE);
-                #else
-                fprintf(fp, "  %04zx: %s%s", offset, hex_buf, ULOG_ENDLINE);
-                #endif
-                fclose(fp);
-            }
-            #else
-            FIL f;
-            FRESULT rc;
-            UINT bw;
-            char line_buf[128];
-
-            rc = f_open(&f, ULOG_FILE_NAME, FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_APPEND);
-            if (rc == FR_OK)
-            {
-                if (offset == 0)
-                {
-                    f_write(&f, ftime, strlen(ftime), &bw);
-                    f_write(&f, " ", 1, &bw);
-                    #if ULOG_PRINT_TAG == 1
-                    f_write(&f, ftag, strlen(ftag), &bw);
-                    f_write(&f, " ", 1, &bw);
-                    #endif
-                    #if ULOG_PRINT_LEVEL == 1
-                    f_write(&f, ulog_level_str[level], strlen(ulog_level_str[level]), &bw);
-                    f_write(&f, " ", 1, &bw);
-                    #endif
-                    snprintf(line_buf, sizeof(line_buf), "%s (%zu bytes)%s", desc, len, ULOG_ENDLINE);
-                    f_write(&f, line_buf, strlen(line_buf), &bw);
-                }
-                #if ULOG_DUMP_SHOW_ASCII == 1
-                snprintf(line_buf, sizeof(line_buf), "  %04zx: %s %s%s", offset, hex_buf, ascii_buf, ULOG_ENDLINE);
-                #else
-                snprintf(line_buf, sizeof(line_buf), "  %04zx: %s%s", offset, hex_buf, ULOG_ENDLINE);
-                #endif
-                f_write(&f, line_buf, strlen(line_buf), &bw);
-                f_close(&f);
-            }
-            #endif /* ULOG_USE_POSIX_IO */
+            fwrite(dline, 1, (size_t)(d - dline), fp);
         }
+        #else
+        if (f_opened)
+        {
+            f_write(&f, dline, (UINT)(d - dline), &bw);
+        }
+        #endif /* ULOG_USE_POSIX_IO */
         #endif /* ULOG_FILE_SYSTEM */
     }
+
+    #if ULOG_FILE_SYSTEM == 1
+    #if ULOG_USE_POSIX_IO == 1
+    if (fp != NULL)
+    {
+        fclose(fp);
+    }
+    #else
+    if (f_opened)
+    {
+        f_close(&f);
+    }
+    #endif /* ULOG_USE_POSIX_IO */
+    #endif /* ULOG_FILE_SYSTEM */
 
     ULOG_MUTEX_GIVE();
 }
