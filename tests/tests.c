@@ -3,6 +3,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
@@ -155,6 +156,45 @@ static void test_func_combined_dest(void)
     printf("  PASS: test_func_combined_dest\n");
 }
 
+static void test_func_timestamp(void)
+{
+    ulog_deinit();
+    ulog_set_func(capture_printf);
+    ulog_init(ULOG_FUNC);
+    ulog_set_level(ULOG_TRACE_LVL);
+
+    /* The second line is logged a second later: the date and time kept by ulog must follow the clock */
+    for (int i = 0; i < 2; i++)
+    {
+        char expected[sizeof("2000/01/01 06:03:22")];
+        struct timespec before, after;
+
+        /* Repeat if the second has changed while logging */
+        do
+        {
+            clock_gettime(CLOCK_REALTIME, &before);
+            capture_reset();
+            ulog(ULOG_FUNC, ULOG_INFO_LVL, "test", "time");
+            clock_gettime(CLOCK_REALTIME, &after);
+        } while (before.tv_sec != after.tv_sec);
+
+        size_t len = strftime(expected, sizeof(expected), "%Y/%m/%d %H:%M:%S", localtime(&before.tv_sec));
+        assert(strncmp(capture_buf, expected, len) == 0);
+
+        /* Milliseconds: a dot, three digits and a space */
+        int ms = atoi(capture_buf + len + 1);
+        assert(capture_buf[len] == '.' && capture_buf[len + 4] == ' ');
+        assert(ms >= before.tv_nsec / 1000000 && ms <= after.tv_nsec / 1000000);
+
+        if (i == 0)
+        {
+            struct timespec tim = {.tv_sec = 1, .tv_nsec = 0};
+            nanosleep(&tim, NULL);
+        }
+    }
+    printf("  PASS: test_func_timestamp\n");
+}
+
 /* ---- Original demo tests ---- */
 
 static void test_demo(void)
@@ -249,6 +289,7 @@ int main(void)
     test_func_dump();
     test_func_dump_macro();
     test_func_combined_dest();
+    test_func_timestamp();
 
     printf("\nRunning demo tests:\n");
     test_demo();

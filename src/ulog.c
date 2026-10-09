@@ -98,38 +98,45 @@ static char* ulog_head(char* line, uint8_t level, const char* tag, int* head_len
     size_t n;
 
     #if ULOG_TIMESTAMP == 1
-    struct tm* timeinfo;
+    /* Date and time are formatted once per second and kept between the calls, the callers hold the mutex */
+    static char ftime[sizeof("2000/01/01 06:03:22")];
+    static size_t ftime_len = 0;
+    static time_t ftime_sec;
     #if ULOG_TIMESTAMP_MS == 1
-    char ftime[sizeof("2000/01/01 06:03:22.000")];
     struct timespec rawtime;
 
     clock_gettime(CLOCK_REALTIME, &rawtime);
-    timeinfo = localtime(&rawtime.tv_sec);
-    int ms = (int)(rawtime.tv_nsec / 1000000);
-    int len = (int)strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", timeinfo);
-    if (len > 0 && (size_t)len < sizeof(ftime))
-    {
-        snprintf(ftime + len, sizeof(ftime) - (size_t)len, ".%03d", ms);
-    }
+    time_t sec = rawtime.tv_sec;
     #else
-    char ftime[sizeof("2000/01/01 06:03:22")];
-    time_t rawtime;
+    time_t sec;
 
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
-    strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", timeinfo);
+    time(&sec);
     #endif
+
+    if (ftime_len == 0 || sec != ftime_sec)
+    {
+        ftime_len = strftime(ftime, sizeof(ftime), "%Y/%m/%d %H:%M:%S", localtime(&sec));
+        ftime_sec = sec;
+    }
+    n = ftime_len;
     #else
     char ftime[sizeof("(0123456789)")];
     unsigned int ticks;
 
     ticks = (unsigned int)clock();
     snprintf(ftime, sizeof(ftime), "(%010u)", ticks);
+    n = strlen(ftime);
     #endif
 
-    n = strlen(ftime);
     memcpy(p, ftime, n);
     p += n;
+    #if ULOG_TIMESTAMP == 1 && ULOG_TIMESTAMP_MS == 1
+    unsigned int ms = (unsigned int)(rawtime.tv_nsec / 1000000) % 1000;
+    *p++ = '.';
+    *p++ = (char)('0' + ms / 100);
+    *p++ = (char)('0' + ms / 10 % 10);
+    *p++ = (char)('0' + ms % 10);
+    #endif
     *p++ = ' ';
 
     #if ULOG_PRINT_TAG == 1
